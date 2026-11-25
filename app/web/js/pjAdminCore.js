@@ -109,3 +109,56 @@ var jQuery = jQuery || $.noConflict();
 		});
 	});
 })(jQuery);
+/* Input hygiene: no leading/trailing/duplicate whitespace where it is not valid (mirrors app/config/input.inc.php). */
+(function(){
+	var WS = /^[\s\u00A0\u200B-\u200D\uFEFF]+|[\s\u00A0\u200B-\u200D\uFEFF]+$/g;
+	var INNER = /[\s\u00A0]+/g;
+	function scope(el){ return el.closest && (el.closest('form') || el.closest('.abForm')); }
+	function applies(el){
+		if (!el || !el.tagName || !el.name) { return false; }
+		var t = (el.type || '').toLowerCase(), tag = el.tagName.toLowerCase();
+		if (tag === 'textarea') { return true; }
+		if (tag !== 'input') { return false; }
+		if (/^(password|hidden|file|checkbox|radio|submit|button|image|reset|range|color)$/.test(t)) { return false; }
+		if (/pass|csrf|token|cc_|captcha/i.test(el.name)) { return false; }
+		return true;
+	}
+	function kind(el){
+		var n = (el.name || '').toLowerCase();
+		if (el.tagName.toLowerCase() === 'textarea') { return 'text'; }
+		if (/email/.test(n)) { return 'email'; }
+		if (/(^|_|\[)(code|uuid|alpha_2|alpha_3)(_|\]|$)/.test(n)) { return 'token'; }
+		if (/(^|_|\[)(name|city|state|company)(\]|$)/.test(n) || n === 'name') { return 'name'; }
+		if (/phone|zip/.test(n)) { return 'phone'; }
+		return 'line';
+	}
+	function clean(el){
+		if (!applies(el)) { return; }
+		var v = el.value, k = kind(el), o = v;
+		v = v.replace(WS, '');
+		if (k === 'name' || k === 'phone') { v = v.replace(INNER, ' '); }
+		else if (k === 'token' || k === 'email') { if (k === 'token') { v = v.replace(INNER, ''); } }
+		if (v !== o) { el.value = v; }
+	}
+	document.addEventListener('blur', function(e){ clean(e.target); }, true);
+	document.addEventListener('change', function(e){ clean(e.target); }, true);
+	document.addEventListener('paste', function(e){ var t = e.target; setTimeout(function(){ if (applies(t) && kind(t) !== 'text') { clean(t); } }, 0); }, true);
+	document.addEventListener('keydown', function(e){
+		var t = e.target;
+		if (!applies(t) || e.ctrlKey || e.metaKey) { return; }
+		if ((e.key === ' ' || e.keyCode === 32) && (!t.value.length || (t.selectionStart === 0 && t.selectionEnd === 0))) { e.preventDefault(); return; }
+		var k = kind(t);
+		if ((e.key === ' ' || e.keyCode === 32) && (k === 'email' || k === 'token')) { e.preventDefault(); return; }
+		if ((e.key === ' ' || e.keyCode === 32) && (k === 'name' || k === 'phone') && t.selectionStart > 0 && t.value.charAt(t.selectionStart - 1) === ' ') { e.preventDefault(); }
+	}, true);
+	document.addEventListener('submit', function(e){
+		var f = e.target; if (!f || !f.elements) { return; }
+		for (var i = 0; i < f.elements.length; i++) { clean(f.elements[i]); }
+	}, true);
+	// jQuery-validate / click driven submits: normalise just before any button inside a form is processed
+	document.addEventListener('click', function(e){
+		var b = e.target && e.target.closest ? e.target.closest('button, input[type=submit]') : null;
+		var f = b && b.form;
+		if (f) { for (var i = 0; i < f.elements.length; i++) { clean(f.elements[i]); } }
+	}, true);
+})();

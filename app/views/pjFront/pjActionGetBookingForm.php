@@ -8,6 +8,8 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 	</div>
 	<?php
 } else {
+	$modern_step = 2;
+	include dirname(__FILE__) . '/elements/steps.php';
 	include dirname(__FILE__) . '/elements/menu.php';
 	$STORAGE = @$_SESSION[$controller->defaultCalendar];
 	$jquery_validation = __('jquery_validation', true);
@@ -17,6 +19,7 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 		<input type="hidden" name="end_dt" value="<?php echo @$STORAGE['end_dt']; ?>" />
 		<div class="abBox abWhite abHeading"><?php __('bf_booking'); ?></div>
 		<div class="abBox abGray">
+			<?php include dirname(__FILE__) . '/elements/stay.php'; ?>
 			<div class="abParagraph">
 				<div class="abParagraphInner">
 					<label class="abTitle"><?php __('bf_start_date'); ?></label>

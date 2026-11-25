@@ -59,7 +59,25 @@ class pjAdminReservations extends pjAdmin
 			$data['price_based_on'] = $option_arr['o_price_based_on'];
 			$data['ip'] = $_SERVER['REMOTE_ADDR'];
 			$data['locale_id'] = $this->getLocaleId();			
-			$insert_id = $pjReservationModel->reset()->setAttributes(array_merge($this->_post->raw(), $data))->insert()->getInsertId();
+			$post = $this->_post->raw();
+			$post['voucher_code'] = NULL;
+			$post['discount'] = 0;
+			$vcode = trim((string) $this->_post->toString('voucher_code'));
+			if ($vcode !== '' && pjObject::getPlugin('pjVouchers') !== NULL)
+			{
+				# the voucher is validated again on the server; the Amount field holds the price BEFORE the discount
+				$voucher = pjVoucherModel::factory()->getVoucher($vcode, $data['date_from']);
+				$price = (float) $this->_post->toString('amount');
+				if ($voucher['status'] == 'OK' && $price > 0)
+				{
+					$disc = $voucher['arr']['type'] == 'percent' ? round($price * (float) $voucher['arr']['discount'] / 100, 2) : (float) $voucher['arr']['discount'];
+					$disc = min($disc, $price);
+					$post['voucher_code'] = $voucher['arr']['code'];
+					$post['discount'] = $disc;
+					$post['amount'] = round($price - $disc, 2);
+				}
+			}
+			$insert_id = $pjReservationModel->reset()->setAttributes(array_merge($post, $data))->insert()->getInsertId();
 			if ($insert_id !== false && (int) $insert_id > 0)
 			{
 				pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionIndex&err=AR03");
@@ -178,7 +196,17 @@ class pjAdminReservations extends pjAdmin
 					$this->_post->check('c_adults') ? $this->_post->toInt('c_adults') : 0, 
 					$this->_post->check('c_children') ? $this->_post->toInt('c_children') : 0,
 					$option_arr,
-					$this->getLocaleId());
+					$this->getLocaleId(),
+					$this->_post->toString('voucher_code'));
+			if (!empty($response['voucher_status']))
+			{
+				switch ($response['voucher_status'])
+				{
+					case 'OK': $response['voucher_text'] = __('plugin_vouchers_front_label_added_voucher', true); break;
+					case 'OUT_OF_RANGE': $response['voucher_text'] = __('plugin_vouchers_front_label_out_range_voucher', true); break;
+					default: $response['voucher_text'] = __('plugin_vouchers_front_label_invalid_voucher', true);
+				}
+			}
 			$response['status'] = 'OK';
 			pjAppController::jsonResponse($response);
 		}
@@ -457,7 +485,16 @@ class pjAdminReservations extends pjAdmin
 					pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionUpdate&id=".$this->_post->toInt('id')."&err=AR11");
 				}
 			}
-			$pjReservationModel->reset()->where('id', $this->_post->toInt('id'))->limit(1)->modifyAll(array_merge($this->_post->raw(), $data));
+			$post = $this->_post->raw();
+			if (!empty($reservation['voucher_code']))
+			{
+				# the Amount field shows the price BEFORE the voucher discount; the amount is stored AFTER the discount
+				$disc = isset($post['discount']) ? max(0, (float) $post['discount']) : (float) $reservation['discount'];
+				$post['amount'] = max(0, round((float) $post['amount'] - $disc, 2));
+				$post['discount'] = $disc;
+				$post['voucher_code'] = $disc > 0 ? $reservation['voucher_code'] : NULL;
+			}
+			$pjReservationModel->reset()->where('id', $this->_post->toInt('id'))->limit(1)->modifyAll(array_merge($post, $data));
 			pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionIndex&err=AR01");
 		} else {
 			$this->set('arr', $reservation);

@@ -26,13 +26,22 @@ class pjFront extends pjAppController
 	        $this->pjActionSetLocale($this->_get->toInt('locale'));
 	    }
 	    
-	    if ($this->pjActionGetLocale() === FALSE)
+	    $locale_arr = pjLocaleModel::factory()->where('is_default', 1)->limit(1)->findAll()->getData();
+	    if (count($locale_arr) === 1)
 	    {
-	        $locale_arr = pjLocaleModel::factory()->where('is_default', 1)->limit(1)->findAll()->getData();
-	        if (count($locale_arr) === 1)
+	        $default_id = (int) $locale_arr[0]['id'];
+	        $seen_key = $this->defaultLocale . '_default';
+	        $seen_id = isset($_SESSION[$seen_key]) ? (int) $_SESSION[$seen_key] : 0;
+	        if ($this->pjActionGetLocale() === FALSE)
 	        {
-	            $this->pjActionSetLocale($locale_arr[0]['id']);
+	            $this->pjActionSetLocale($default_id);
+	        } elseif ($seen_id !== $default_id && !($this->_get->check('locale') && $this->_get->toInt('locale') > 0))
+	        {
+	            # The default language was changed in the admin panel after this visitor's language was stored:
+	            # follow the new default (an explicit ?locale= in the embed code still wins)
+	            $this->pjActionSetLocale($default_id);
 	        }
+	        $_SESSION[$seen_key] = $default_id;
 	    }
 	    if ($this->_get->check('action') && !in_array($this->_get->toArray('action'), array('pjActionLoadCss')))
 	    {
@@ -104,6 +113,10 @@ class pjFront extends pjAppController
 		{
 			$this->pjActionSetLocale($this->_get->toInt('locale'));
 			$this->loadSetFields(true);
+		} elseif ($this->getDefaultLocaleId() > 0) {
+			# No language fixed in the embed code: every page load starts in the default language, never in a language left in the session by an earlier visit or preview
+			$this->pjActionSetLocale($this->getDefaultLocaleId());
+			$this->loadSetFields(true);
 		}
 		$limit_arr = pjLimitModel::factory()
 		->select('t1.min_nights, t1.max_nights, UNIX_TIMESTAMP(t1.date_from) AS ts_from, UNIX_TIMESTAMP(t1.date_to) AS ts_to')
@@ -152,6 +165,10 @@ class pjFront extends pjAppController
 		if ($this->_get->check('locale') && $this->_get->toInt('locale') > 0)
 		{
 			$this->pjActionSetLocale($this->_get->toInt('locale'));
+			$this->loadSetFields(true);
+		} elseif ($this->getDefaultLocaleId() > 0) {
+			# No language fixed in the embed code: every page load starts in the default language, never in a language left in the session by an earlier visit or preview
+			$this->pjActionSetLocale($this->getDefaultLocaleId());
 			$this->loadSetFields(true);
 		}
 	}
@@ -247,6 +264,41 @@ class pjFront extends pjAppController
 		exit;
 	}
 	
+	private function pjActionFrontRules($start_dt, $end_dt, $calendar_id)
+	{
+		# Server-side enforcement of the Booking Options / Limits that the calendar script only checks in the browser
+		$opt = pjOptionModel::factory()->getPairs($calendar_id);
+		if ((int) @$opt['o_accept_bookings'] !== 1)
+		{
+			return array('status' => 'ERR', 'code' => 104, 'text' => __('front_booking_closed', true));
+		}
+		$s = (int) $start_dt;
+		$e = (int) $end_dt;
+		if ($s > $e)
+		{
+			$t = $s; $s = $e; $e = $t;
+		}
+		$days_mode = (@$opt['o_price_based_on'] != 'nights');
+		$tdays = (int) round(($e - $s) / 86400) + ($days_mode ? 1 : 0);
+		$limit_arr = pjLimitModel::factory()
+			->select('t1.min_nights, t1.max_nights, UNIX_TIMESTAMP(t1.date_from) AS ts_from, UNIX_TIMESTAMP(t1.date_to) AS ts_to')
+			->where('t1.calendar_id', $calendar_id)
+			->findAll()->getData();
+		$front_err = __('front_err', true, true);
+		for ($j = $s; $j <= $e; $j = strtotime('+1 day', $j))
+		{
+			foreach ($limit_arr as $limit)
+			{
+				if ($j >= (int) $limit['ts_from'] && $j <= (int) $limit['ts_to'] && ($tdays < (int) $limit['min_nights'] || $tdays > (int) $limit['max_nights']))
+				{
+					$msg = (string) @$front_err[$days_mode ? 'limits_days' : 'limits'];
+					return array('status' => 'ERR', 'code' => 105, 'text' => str_replace(array('{MIN}', '{MAX}', '{YOUR}'), array((int) $limit['min_nights'], (int) $limit['max_nights'], $tdays), $msg));
+				}
+			}
+		}
+		return NULL;
+	}
+	
 	public function pjActionCheckDates()
 	{
 		$this->setAjax(true);
@@ -261,7 +313,11 @@ class pjFront extends pjAppController
 				$date_from = $date_to;
 				$date_to = $tmp;
 			}
-			$resp = $this->pjActionCheckDt($date_from, $date_to, $this->_get->toInt('cid'), NULL, TRUE);
+			$resp = $this->pjActionFrontRules($this->_get->toString('start_dt'), $this->_get->toString('end_dt'), $this->_get->toInt('cid'));
+			if ($resp === NULL)
+			{
+				$resp = $this->pjActionCheckDt($date_from, $date_to, $this->_get->toInt('cid'), NULL, TRUE);
+			}
 			pjAppController::jsonResponse($resp);
 		}
 		exit;
@@ -451,14 +507,7 @@ class pjFront extends pjAppController
 					$_SESSION[$this->defaultCalendar] = array_merge($_SESSION[$this->defaultCalendar], compact('start_dt', 'end_dt'));
 				}
 								
-				$this->set('price_arr', $this->pjActionCalcPrices(
-						$this->_get->toInt('cid'), 
-						$_SESSION[$this->defaultCalendar]['start_dt'], 
-						$_SESSION[$this->defaultCalendar]['end_dt'], 
-						@$_SESSION[$this->defaultCalendar]['c_adults'], 
-						@$_SESSION[$this->defaultCalendar]['c_children'],
-						$this->option_arr,
-						$this->getLocaleId()));
+				$this->set('price_arr', $this->calcFrontPrices(@$_SESSION[$this->defaultCalendar]['c_adults'], @$_SESSION[$this->defaultCalendar]['c_children']));
 				
 				if ((int) $this->option_arr['o_bf_terms'] !== 1)
 				{
@@ -611,21 +660,70 @@ class pjFront extends pjAppController
 		exit;
 	}
 	
+	/**
+	 * Calculates prices for the current front-end session, applying the session voucher (if any).
+	 * A voucher that is no longer valid (e.g. the dates were changed) is dropped from the session.
+	 */
+	private function calcFrontPrices($adults, $children)
+	{
+		$code = isset($_SESSION[$this->defaultCalendar]['voucher_code']) ? $_SESSION[$this->defaultCalendar]['voucher_code'] : '';
+		$price = $this->pjActionCalcPrices(
+			$this->_get->toInt('cid'),
+			$_SESSION[$this->defaultCalendar]['start_dt'],
+			$_SESSION[$this->defaultCalendar]['end_dt'],
+			$adults,
+			$children,
+			$this->option_arr,
+			$this->getLocaleId(),
+			$code);
+		if ($code !== '' && $price['voucher_status'] !== 'OK')
+		{
+			unset($_SESSION[$this->defaultCalendar]['voucher_code']);
+		}
+		return $price;
+	}
+	
+	public function pjActionApplyVoucher()
+	{
+		$this->setAjax(true);
+		if ($this->isXHR())
+		{
+			$code = trim((string) $this->_post->toString('voucher_code'));
+			$resp = array('status' => 'ERR', 'text' => __('plugin_vouchers_front_label_invalid_voucher', true));
+			if (pjObject::getPlugin('pjVouchers') !== NULL && $code !== '' && isset($_SESSION[$this->defaultCalendar]['start_dt']))
+			{
+				$voucher = pjVoucherModel::factory()->getVoucher($code, date('Y-m-d', $_SESSION[$this->defaultCalendar]['start_dt']));
+				if ($voucher['status'] == 'OK')
+				{
+					$_SESSION[$this->defaultCalendar]['voucher_code'] = $voucher['arr']['code'];
+					$resp = array('status' => 'OK');
+				} elseif ($voucher['code'] == '101') {
+					$resp['text'] = __('plugin_vouchers_front_label_out_range_voucher', true);
+				}
+			}
+			pjAppController::jsonResponse($resp);
+		}
+		exit;
+	}
+	
+	public function pjActionRemoveVoucher()
+	{
+		$this->setAjax(true);
+		if ($this->isXHR())
+		{
+			unset($_SESSION[$this->defaultCalendar]['voucher_code']);
+			pjAppController::jsonResponse(array('status' => 'OK'));
+		}
+		exit;
+	}
+	
 	public function pjActionGetPrice()
 	{
 		$this->setAjax(true);
 		
 		if ($this->isXHR())
 		{
-			$this->set('price_arr', $this->pjActionCalcPrices(
-					$this->_get->toInt('cid'), 
-					$_SESSION[$this->defaultCalendar]['start_dt'], 
-					$_SESSION[$this->defaultCalendar]['end_dt'], 
-					$this->_post->toInt('c_adults'), 
-					$this->_post->toInt('c_children'), 
-					$this->option_arr,
-					$this->getLocaleId())
-				);
+			$this->set('price_arr', $this->calcFrontPrices($this->_post->toInt('c_adults'), $this->_post->toInt('c_children')));
 		}
 	}
 	
@@ -642,7 +740,8 @@ class pjFront extends pjAppController
 			} else {
 				$booking_arr = pjReservationModel::factory()
 					->join('pjMultiLang', "t2.foreign_id = t1.calendar_id AND t2.model = 'pjCalendar' AND t2.locale = '".$this->getLocaleId()."' AND t2.field = 'name'", 'left')
-					->select('t1.*, t2.content as calendar_name')
+					->join('pjMultiLang', "t3.foreign_id = t1.calendar_id AND t3.model = 'pjCalendar' AND t3.locale = '".(int) $this->getDefaultLocaleId()."' AND t3.field = 'name'", 'left')
+					->select("t1.*, IF(t2.content IS NULL OR t2.content = '', t3.content, t2.content) as calendar_name")
 					->find($this->_get->toInt('reservation_id'))
 					->getData();
 					
@@ -699,13 +798,7 @@ class pjFront extends pjAppController
 			} else {
 				$_SESSION[$this->defaultCalendar] = array_merge($_SESSION[$this->defaultCalendar], $this->_post->raw());
 				
-				$this->set('price_arr', $this->pjActionCalcPrices($this->_get->toInt('cid'), 
-						$_SESSION[$this->defaultCalendar]['start_dt'], 
-						$_SESSION[$this->defaultCalendar]['end_dt'], 
-						@$_SESSION[$this->defaultCalendar]['c_adults'], 
-						((int) $this->option_arr['o_bf_children'] !== 1 ? @$_SESSION[$this->defaultCalendar]['c_children'] : 0), 
-						$this->option_arr,
-						$this->getLocaleId()));
+				$this->set('price_arr', $this->calcFrontPrices(@$_SESSION[$this->defaultCalendar]['c_adults'], ((int) $this->option_arr['o_bf_children'] !== 1 ? @$_SESSION[$this->defaultCalendar]['c_children'] : 0)));
 	
 				if ((int) $this->option_arr['o_bf_country'] !== 1 && isset($_SESSION[$this->defaultCalendar]['c_country']))
 				{
@@ -812,9 +905,11 @@ class pjFront extends pjAppController
 				$locale = $this->_get->check('locale') && $this->_get->toInt('locale') > 0 ? $this->_get->toInt('locale') : $this->pjActionGetLocale();
 				
 				$pjCalendarModel = pjCalendarModel::factory()
-					->select("t1.*, t2.content AS `title`, t3.value AS `o_bookings_per_day`")
+					->select("t1.*, IF(t2.content IS NULL OR t2.content = '', t4.content, t2.content) AS `title`, t3.value AS `o_bookings_per_day`")
 					->join('pjMultiLang', "t2.model='pjCalendar' AND t2.foreign_id=t1.id AND t2.field='name' AND t2.locale='$locale'", 'left outer')
-					->join('pjOption', "t3.foreign_id=t1.id AND t3.key='o_bookings_per_day'", 'left outer');
+					->join('pjOption', "t3.foreign_id=t1.id AND t3.key='o_bookings_per_day'", 'left outer')
+					# a calendar that has no name in this language shows its name in the default language
+					->join('pjMultiLang', "t4.model='pjCalendar' AND t4.foreign_id=t1.id AND t4.field='name' AND t4.locale='".(int) $this->getDefaultLocaleId()."'", 'left outer');
 				$pjReservationModel = pjReservationModel::factory();
 				$pjOptionModel = pjOptionModel::factory();
 				$arr = $pjCalendarModel->orderBy('t1.id ASC')->findAll()->getData();
@@ -845,6 +940,26 @@ class pjFront extends pjAppController
 	{
 		header("Content-Type: text/css; charset=utf-8");
 		$index = rand(1,99999);
+		
+		# Modern: the first calendar that uses it provides the design of the whole availability table
+		$pjOptionModel = pjOptionModel::factory();
+		$calendar_arr = pjCalendarModel::factory()->findAll()->getData();
+		$modern_opts = NULL;
+		$row_arr = array();
+		foreach ($calendar_arr as $calendar)
+		{
+			$row_arr[$calendar['id']] = $pjOptionModel->reset()->getPairs($calendar['id']);
+			if (is_null($modern_opts) && isset($row_arr[$calendar['id']]['o_theme']) && $row_arr[$calendar['id']]['o_theme'] == 'modern')
+			{
+				$modern_opts = $row_arr[$calendar['id']];
+			}
+		}
+		if (!is_null($modern_opts))
+		{
+			# @import must be the first rule of the stylesheet (fonts of all Modern calendars)
+			echo pjAppController::getModernFontsImportAll(array_merge(array($modern_opts), $row_arr));
+		}
+		
 		$arr = array(
 			array('file' => 'ABCalendar.Availability.css', 'path' => PJ_CSS_PATH),
 			array('file' => 'ABCalendar.Availability.txt', 'path' => PJ_CSS_PATH)
@@ -865,8 +980,25 @@ class pjFront extends pjAppController
 			}
 		}
 		
-		$pjOptionModel = pjOptionModel::factory();
-		$arr = pjCalendarModel::factory()->findAll()->getData();
+		if (!is_null($modern_opts))
+		{
+			echo pjAppController::getModernCss($modern_opts, '.abAvailability', 'modern.availability.css');
+			# Modern rows follow the global Modern customization (the container variables above); only Classic rows keep their own colours
+			foreach ($row_arr as $cid => $row_options)
+			{
+				# the calendar name takes the colour chosen in that calendar's appearance
+				$name_sel = '.abAvailability .abCal-title.abCal-t-' . (int) $cid;
+				echo $name_sel . ', ' . $name_sel . ' a, ' . $name_sel . ' a.abCal-link{color:' . pjAppController::getRowNameColor($row_options) . ';}' . "\n";
+				if (isset($row_options['o_theme']) && $row_options['o_theme'] == 'modern')
+				{
+					continue;
+				}
+				echo pjAppController::getModernRowCss($row_options, '.abAvailability .abCal-id-' . (int) $cid . ', .abAvailability .abCal-t-' . (int) $cid);
+			}
+			exit;
+		}
+		
+		$arr = $calendar_arr;
 		
 		ob_start();
 		@readfile(PJ_CSS_PATH . 'availability.txt');
@@ -985,6 +1117,12 @@ class pjFront extends pjAppController
 			array('file' => 'ABFonts.min.css', 'path' => PJ_CSS_PATH)
 		);
 		header("Content-Type: text/css; charset=utf-8");
+		$modern = isset($this->option_arr['o_theme']) && $this->option_arr['o_theme'] == 'modern';
+		if ($modern)
+		{
+			# @import must be the first rule of the stylesheet
+			echo pjAppController::getModernFontsImport(pjAppController::getModernSettings(isset($this->option_arr['o_modern_colors']) ? $this->option_arr['o_modern_colors'] : ''));
+		}
 		foreach ($arr as $item)
 		{
 			ob_start();
@@ -999,6 +1137,12 @@ class pjFront extends pjAppController
 					array(PJ_IMG_PATH, PJ_FONT_PATH, "pjWrapperABC_" . $this->_get->toInt('cid')),
 					$string) . "\n";
 			}
+		}
+		
+		if ($modern)
+		{
+			echo pjAppController::getModernCss($this->option_arr, '#pjWrapperABC_' . $this->_get->toInt('cid'), 'modern.css');
+			exit;
 		}
 		
 		ob_start();
@@ -1126,7 +1270,30 @@ class pjFront extends pjAppController
 				$data['date_to'] = date("Y-m-d", $_SESSION[$this->defaultCalendar]['end_dt']);
 				$data['price_based_on'] = $this->option_arr['o_price_based_on'];
 				
-				$resp = $this->pjActionCheckDt($data['date_from'], $data['date_to'], $data['calendar_id'], NULL, TRUE);
+				$req = array();
+				foreach (array('name','email','phone','address','city','state','zip','country','notes') as $fld)
+				{
+					if ((int) @$this->option_arr['o_bf_' . $fld] === 3) $req[] = 'c_' . $fld;
+				}
+				$pv = array();
+				foreach (array('c_name','c_email','c_phone','c_address','c_city','c_state','c_zip','c_country','c_notes') as $fld)
+				{
+					if (isset($_SESSION[$this->defaultCalendar][$fld]) && !is_array($_SESSION[$this->defaultCalendar][$fld])) $pv[$fld] = $_SESSION[$this->defaultCalendar][$fld];
+				}
+				$verr = pjUtil::validatePersonFields($pv, $req);
+				if (!empty($verr))
+				{
+					$jv = __('jquery_validation', true);
+					$msgs = array();
+					foreach ($verr as $fld => $why) $msgs[] = ($why == 'required' || !isset($jv[$why])) ? $jv['required'] : $jv['email'];
+					pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 103, 'text' => join(' ', array_unique($msgs)), 'fields' => array_keys($verr)));
+				}
+				
+				$resp = $this->pjActionFrontRules($_SESSION[$this->defaultCalendar]['start_dt'], $_SESSION[$this->defaultCalendar]['end_dt'], $data['calendar_id']);
+				if ($resp === NULL)
+				{
+					$resp = $this->pjActionCheckDt($data['date_from'], $data['date_to'], $data['calendar_id'], NULL, TRUE);
+				}
 				if ($resp['status'] == 'ERR')
 				{
 					pjAppController::jsonResponse($resp);
@@ -1134,18 +1301,13 @@ class pjFront extends pjAppController
 				
 				$data = array_merge($_SESSION[$this->defaultCalendar], $data);
 	
-				$price = $this->pjActionCalcPrices(
-						$data['calendar_id'], 
-						$_SESSION[$this->defaultCalendar]['start_dt'], 
-						$_SESSION[$this->defaultCalendar]['end_dt'], 
-						@$data['c_adults'], 
-						@$data['c_children'], 
-						$this->option_arr,
-						$this->getLocaleId());
+				$price = $this->calcFrontPrices(@$data['c_adults'], @$data['c_children']);
 				
 				$data['amount'] = @$price['amount'];
 				$data['deposit'] = @$price['deposit'];
-				$data['tax'] = @$price['tax'];	
+				$data['tax'] = @$price['tax'];
+				$data['voucher_code'] = !empty($price['voucher_code']) ? $price['voucher_code'] : NULL;
+				$data['discount'] = !empty($price['voucher_code']) ? $price['discount'] : 0;
 				if (isset($data['payment_method']) && $data['payment_method'] != 'creditcard')
 				{
 					unset($data['cc_type']);
@@ -1158,13 +1320,13 @@ class pjFront extends pjAppController
 				$pjReservationModel = new pjReservationModel();
 				if (!$pjReservationModel->validates($data))
 				{
-					pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 100, 'text' => 'Reservations data does not validate.'));
+					pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 100, 'text' => __('front_booking_invalid', true)));
 				}
 				
 				$reservation_id = $pjReservationModel->setAttributes($data)->insert()->getInsertId();
 				if ($reservation_id === false || (int) $reservation_id === 0)
 				{
-					pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 101, 'text' => 'Reservation was not saved.'));
+					pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 101, 'text' => __('front_booking_not_saved', true)));
 				}
 				
 				$_SESSION[$this->defaultCalendar] = NULL;
@@ -1176,12 +1338,12 @@ class pjFront extends pjAppController
 				pjFront::pjActionConfirmSend($reservation_id, $this->option_arr, $this->getLocaleId(), 'confirmation');
 			
 				pjAppController::jsonResponse(array(
-					'status' => 'OK', 'code' => 200, 'text' => 'Reservation was saved.',
+					'status' => 'OK', 'code' => 200, 'text' => __('front_booking_saved', true),
 					'reservation_id' => $reservation_id,
 					'payment_method' => @$data['payment_method']
 				));
 			} else {
-				pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 102, 'text' => 'Missing or empty params.'));
+				pjAppController::jsonResponse(array('status' => 'ERR', 'code' => 102, 'text' => __('front_booking_missing', true)));
 			}
 		}
 		exit;
@@ -1197,6 +1359,9 @@ class pjFront extends pjAppController
 			{
 				$this->pjActionSetLocale($this->_get->toInt('locale_id'));
 				$this->loadSetFields(true);
+				# the messages built into the page (date errors) are sent in the new language, so they change with it
+				$front_err = str_replace(array('"', "'"), array('\"', "\'"), __('front_err', true, true));
+				pjAppController::jsonResponse(array('error_msg' => $front_err));
 			}
 		}
 		exit;

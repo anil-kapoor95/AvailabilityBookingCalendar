@@ -250,6 +250,9 @@
 				}).done(function (data) {
 					var year = self.year,
 						month = self.month;
+					if (data && data.error_msg) {
+						self.opts.error_msg = data.error_msg;
+					}
 					self.reset.call(self);
 					self.message_type = 'calendar';
 					self.loadHandler.call(self);
@@ -322,6 +325,21 @@
 				self.loadHandler.call(self);
 				self.getCalendar.call(self, self.year, self.month);
 				return false;
+			}).on("click.ab", ".abCalDockGo", function (e) {
+				if (e && e.preventDefault) {
+					e.preventDefault();
+				}
+				if (self.start_dt === null || self.end_dt === null) {
+					return;
+				}
+				self.dockGo = true;
+				pjQ.$(this).attr("disabled", "disabled");
+				self.checkDates.call(self);
+			}).on("click.ab", ".abCalDockClear", function (e) {
+				if (e && e.preventDefault) {
+					e.preventDefault();
+				}
+				self.modernCalReset.call(self, false);
 			}).on("click.ab", ".abSelectorChangeDates", function (e) {
 				if (e && e.preventDefault) {
 					e.preventDefault();
@@ -415,6 +433,26 @@
 			
 			if (this.opts.accept_bookings) {
 				this.$abWrapper.on("click.ab", this.selector, function (e) {
+					// Every date click starts clean: an error shown for the previously clicked date is removed,
+					// the message for the date clicked now (if any) is shown by the checks below.
+					self.errorHandler.call(self, 'hide');
+					if (self.start_dt !== null) {
+						// Check-out day: only an available day can be chosen. A pending, booked or partly
+						// booked day is ignored (an already chosen day can still be clicked to undo it).
+						var $day = pjQ.$(this),
+							dayTime = parseInt($day.data("time"), 10),
+							available = $day.hasClass("abCalendarDate") &&
+								!$day.is(".abCalendarPending, .abCalendarReserved, .abCalendarPartial, .abCalendarPast, [class*='abCalendarNights'], [class*='abCalendarPendingNights'], [class*='abCalendarReservedNights']");
+						if (dayTime !== self.start_dt && dayTime !== self.end_dt && !available) {
+							self.errorHandler.call(self, 'show', self.opts.error_msg.fully_booked, this);
+							return;
+						}
+					}
+					if (self.modernCalActive() && self.start_dt !== null && self.end_dt !== null) {
+						// a stay is already chosen: this click shortens, extends or removes it
+						self.modernCalAdjust.call(self, this);
+						return;
+					}
 					if(self.start_dt == null)
 					{
 						pjQ.$(this).addClass('abCalendarFirstSelect');
@@ -433,6 +471,16 @@
 						});
 					}
 					self.select.call(self, this);
+					if (self.modernCalActive() && self.start_dt !== null && self.end_dt === null) {
+						// only the arrival day stays highlighted until the pointer moves again (a rejected departure leaves no stale range)
+						if (self.$firstCell && self.$firstCell.length) {
+							self.paint.call(self, self.$firstCell.get(0));
+							self.mark.call(self, self.$firstCell.get(0));
+						}
+						self.modernCalDock.call(self);
+					} else if (self.modernCalActive() && self.start_dt === null) {
+						self.modernCalDock.call(self);
+					}
 				}).on("mouseenter.ab", this.selector, function (e) {
 					self.paint.call(self, this);
 				});
@@ -471,10 +519,51 @@
 				});
 			}
 			
+			this.bindVoucher();
+			
 			this.cancel = new ABCancelIcon({
 				cid: this.opts.cid
 			});
 			
+		},
+		voucherAction: function(action, code)
+		{
+			var self = this;
+			var $form = self.$abWrapper.find(".abSelectorBookingForm");
+			return pjQ.$.post([self.opts.folder, "index.php?controller=pjFront&action=", action, "&cid=", self.opts.cid, "&session_id=", self.opts.session_id].join(""), {voucher_code: code || ''}, null, 'json');
+		},
+		bindVoucher: function()
+		{
+			var self = this;
+			self.$abWrapper.off('.abv');
+			var apply = function ($box) {
+				var code = pjQ.$.trim($box.find(".abVoucherInput").val());
+				var $msg = $box.find(".abVoucherMsg");
+				if (code === '') { $box.find(".abVoucherInput").focus(); return; }
+				self.voucherAction('pjActionApplyVoucher', code).done(function (resp) {
+					if (resp && resp.status === 'OK') {
+						self.calcPrice();
+					} else {
+						$msg.text(resp && resp.text ? resp.text : '').addClass('abVoucherError').show();
+					}
+				});
+			};
+			self.$abWrapper.on("click.abv", ".abVoucherApply", function (e) {
+				if (e && e.preventDefault) { e.preventDefault(); }
+				apply(pjQ.$(this).closest(".abVoucherBox"));
+			}).on("keydown.abv", ".abVoucherInput", function (e) {
+				if (e.which === 13) {
+					e.preventDefault();
+					apply(pjQ.$(this).closest(".abVoucherBox"));
+				}
+			}).on("input.abv", ".abVoucherInput", function () {
+				pjQ.$(this).closest(".abVoucherBox").find(".abVoucherMsg").hide();
+			}).on("click.abv", ".abVoucherRemove", function (e) {
+				if (e && e.preventDefault) { e.preventDefault(); }
+				self.voucherAction('pjActionRemoveVoucher').done(function () {
+					self.calcPrice();
+				});
+			});
 		},
 		calcPrice: function()
 		{
@@ -696,15 +785,266 @@
 				"end_dt": this.end_dt
 			}).done(function (data) {
 				if (data.status === "OK") {
+					if (self.modernCalActive() && !self.dockGo) {
+						// Modern design: show the stay summary with a Continue button instead of jumping to the form
+						self.pendingStay = true;
+						self.modernCalDock();
+						return;
+					}
+					self.dockGo = false;
+					self.pendingStay = false;
 					self.message_type = 'form';
 					self.loadHandler.call(self);
 					pjQ.$('.abCalendarCancel').hide();
 					self.getBookingForm.call(self);
 				} else {
 					self.errorHandler.call(self, 'show', self.opts.error_msg.range_na, el);
+					// the range is not bookable: forget it, so the calendar shows the real availability again
+					self.modernCalReset.call(self, true);
 					return;
 				}
 			});
+		},
+		// Modern design only: floating labels, payment cards and the bottom total bar
+		modernUi: function () {
+			if (!this.$abCalendar.find(".abProg").length) {
+				return;
+			}
+			this.modernFloat();
+			this.modernRequired();
+			this.modernSections();
+			this.modernPayCards();
+			this.modernDock();
+		},
+		// Details page: numbered section titles. Review page: titled blocks with an Edit link.
+		modernSections: function () {
+			var $c = this.$abCalendar, $m = $c.find(".abModernSec").first();
+			if (!$m.length) {
+				return;
+			}
+			var t = function (k) { return $m.attr("data-" + k) || ""; },
+				title = function (text, extra) {
+					return pjQ.$('<div class="abSecTitle' + (extra ? " " + extra : "") + '"></div>').text(text);
+				};
+			var $form = $c.find(".abSelectorBookingForm");
+			if ($form.length && !$form.find(".abSecTitle").length) {
+				var $box = $form.find(".abBox.abWhite").not(".abHeading").first(),
+					firstOf = function (sel) { return $box.find(".abParagraph").filter(function () { return pjQ.$(this).find(sel).length > 0; }).first(); },
+					$contact = firstOf("input[name='c_name'], input[name='c_email'], input[name='c_phone']"),
+					$address = firstOf("input[name='c_address'], input[name='c_zip'], input[name='c_city'], input[name='c_state'], select[name='c_country']"),
+					$confirm = firstOf("#pjAbcCaptchaInput, #pjAbcCaptchaImage, input[name='terms'], .g-recaptcha");
+				if ($contact.length) { $contact.before(title(t("contact"))); }
+				if ($address.length) { $address.before(title(t("address"))); }
+				if ($confirm.length) { $confirm.before(title(t("confirm"))); }
+			}
+			var $sum = $c.find(".abSummaryForm");
+			if ($sum.length && !$sum.find(".abSecTitle").length) {
+				var $gray = $sum.find(".abBox.abGray").first(), $white = $sum.find(".abBox.abWhite").not(".abHeading").first();
+				$gray.prepend(title(t("stay"), "abRv"));
+				$gray.find(".abSelectorPrice").first().before(title(t("price"), "abRv"));
+				var $det = title(t("details"), "abRv"), $edit = pjQ.$('<a href="#" class="abSecEdit"></a>').text(t("edit"));
+				$edit.on("click", function (e) {
+					e.preventDefault();
+					$sum.find(".abSelectorReturn").first().trigger("click");
+				});
+				$white.prepend($det.append($edit));
+			}
+		},
+		// Required fields: the label gets a red * (see .abReq in modern.css)
+		modernRequired: function () {
+			this.$abCalendar.find(".abSelectorBookingForm .abParagraph").each(function () {
+				var $p = pjQ.$(this);
+				$p.toggleClass("abReq", $p.find("input.required:not(.abExtraCheckbox), select.required, textarea.required").length > 0);
+			});
+		},
+		modernFloat: function () {
+			var $c = this.$abCalendar;
+			$c.find(".abSelectorBookingForm .abParagraph").each(function () {
+				var $p = pjQ.$(this),
+					$f = $p.find("input[name^='c_'][type='text'], select[name='c_country']").first();
+				if (!$f.length || $p.hasClass("abFloat")) {
+					return;
+				}
+				var sync = function () {
+					$p.toggleClass("abFilled", $f.is("select") || pjQ.$.trim($f.val()) !== "");
+				};
+				$p.addClass("abFloat");
+				$f.on("input change blur", sync);
+				sync();
+			});
+		},
+		// ---- Modern design, calendar step ----
+		modernCalActive: function () {
+			return this.$abCalendar.find(".abModernCal").length > 0;
+		},
+		modernCalAdjust: function (el) {
+			var self = this, $c = this.$abCalendar,
+				t = parseInt(pjQ.$(el).data("time"), 10),
+				a = Math.min(this.start_dt, this.end_dt), b = Math.max(this.start_dt, this.end_dt),
+				na, nb;
+			if (t === a) {
+				// the arrival day was clicked again: remove the whole stay
+				this.modernCalReset(false);
+				return;
+			}
+			if (t === b) {
+				na = a; nb = null;	// the departure day was clicked again: back to choosing a departure
+			} else if (t > b || (t > a && t < b)) {
+				na = a; nb = t;		// extend or shorten at the departure end
+			} else {
+				na = t; nb = b;		// extend at the arrival end
+			}
+			var find = function (time) {
+				return $c.find(self.selector).filter(function () { return parseInt(pjQ.$(this).data("time"), 10) === time; }).first();
+			};
+			var $a = find(na), $b = nb === null ? null : find(nb);
+			this.modernCalReset(false);
+			if (!$a.length || ($b !== null && !$b.length)) {
+				// part of the range is on another month: start again from the clicked day
+				$a = find(t);
+				$b = null;
+			}
+			if (!$a.length) {
+				return;
+			}
+			$a.addClass("abCalendarFirstSelect");
+			this.select.call(this, $a.get(0));
+			if ($b !== null && this.start_dt !== null) {
+				this.paint.call(this, $b.get(0));
+				this.select.call(this, $b.get(0));
+			}
+			if (this.start_dt !== null && this.end_dt === null) {
+				this.modernCalDock();
+			}
+		},
+		modernCalReset: function (keepMsg) {
+			this.selectedTime = [];
+			this.selectedClass = [];
+			this.start_dt = null;
+			this.end_dt = null;
+			this.paintedData = [];
+			this.$firstCell = null;
+			this.$secondCell = null;
+			this.pendingStay = false;
+			this.dockGo = false;
+			this.$abCalendar.find("td").removeClass("abCalendarSelect abCalendarMark abCalendarFirstSelect abCalendarEndSelect");
+			this.$abCalendar.find(".abCalDock").remove();
+			pjQ.$(".abCalendarCancel").hide();
+			if (!keepMsg) {
+				pjQ.$(".abCalendarMessage").hide();
+			}
+			if (this.modernCalActive()) {
+				this.modernCalDock();
+			}
+		},
+		modernCal: function () {
+			var $c = this.$abCalendar;
+			if (!this.modernCalActive()) {
+				return;
+			}
+			// language selector joins the month toolbar
+			var $lang = $c.find(".abMenu .pjRpbcLanguage").first();
+			var $row = $c.find("table.abCalendarTable > tbody > tr").first();
+			if ($lang.length && $row.length) {
+				$row.append(pjQ.$('<td class="abCalendarLang"></td>').append($lang));
+				$c.find(".abMenu [class*='col-xs-']").filter(function () { return !pjQ.$.trim(pjQ.$(this).text()) && !pjQ.$(this).children().length; }).remove();
+			}
+			if (!$c.find(".abMenu a").length && !$c.find(".abMenu .pjRpbcLanguage").length) {
+				$c.find(".abMenu").hide();
+			}
+			// bottom bar: empty at first, filled when a stay is chosen
+			this.modernCalDock();
+		},
+		modernCalFmt: function (ts, meta) {
+			// Day timestamps are local midnights; the offset known now can differ by an hour on the other side of a daylight-saving change, so snap to the nearest whole day
+			var d = new Date(Math.round((ts + (parseInt(meta.tz, 10) || 0)) / 86400) * 86400 * 1000), out;
+			try {
+				out = d.toLocaleDateString(meta.lang || "en", {weekday: "short", day: "numeric", month: "short", timeZone: "UTC"});
+			} catch (err) {
+				out = d.getUTCDate() + "." + (d.getUTCMonth() + 1) + "." + d.getUTCFullYear();
+			}
+			return out;
+		},
+		modernCalDock: function () {
+			var $c = this.$abCalendar, $m = $c.find(".abModernCal").first();
+			if (!$m.length) {
+				return;
+			}
+			var meta = {
+				lang: $m.attr("data-lang") || "en", tz: $m.attr("data-tz"), days: $m.attr("data-days") === "1",
+				one: $m.attr("data-one"), many: $m.attr("data-many"), stay: $m.attr("data-stay"), none: $m.attr("data-none"),
+				clear: $m.attr("data-clear"), cont: $m.attr("data-continue")
+			};
+			$c.find(".abCalDock").remove();
+			var has = this.start_dt !== null, both = has && this.end_dt !== null, body;
+			if (both) {
+				var a = Math.min(this.start_dt, this.end_dt), b = Math.max(this.start_dt, this.end_dt),
+					n = Math.round((b - a) / 86400) + (meta.days ? 1 : 0);
+				body = '<b></b><span></span>';
+			} else {
+				body = '<b></b><span></span>';
+			}
+			var $d = pjQ.$('<div class="abCalDock"><div class="abCalDockSum"><small></small>' + body + '</div><a href="#" class="abCalDockClear"></a><button type="button" class="abCalDockGo"></button></div>');
+			$d.find("small").text(meta.stay);
+			$d.find(".abCalDockClear").text(meta.clear).toggle(has);
+			$d.find(".abCalDockGo").text(meta.cont).prop("disabled", !both);
+			if (both) {
+				$d.find("b").text(this.modernCalFmt(a, meta) + " \u2192 " + this.modernCalFmt(b, meta));
+				$d.find("span").text(n + " " + (n > 1 ? meta.many : meta.one));
+			} else if (has) {
+				$d.find("b").text(this.modernCalFmt(this.start_dt, meta) + " \u2192 \u2026");
+			} else {
+				$d.find("b").text(meta.none);
+			}
+			$c.append($d);
+		},
+		modernDock: function () {
+			var $c = this.$abCalendar,
+				$para = $c.find(".abParagraph").has(".abSelectorContinue, .abSelectorConfirm").first();
+			if (!$para.length || $para.hasClass("abDock")) {
+				return;
+			}
+			$para.addClass("abDock");
+			var $sum = pjQ.$('<div class="abDockSum"><small></small><b></b></div>').prependTo($para.find(".abParagraphInner").first());
+			var upd = function () {
+				var $r = $c.find(".abSelectorPrice .abParagraph").has(".abPrice").last();
+				var t = pjQ.$.trim($r.find(".abTitle").first().contents().filter(function () { return this.nodeType === 3; }).first().text());
+				$sum.find("small").text(t);
+				$sum.find("b").text(pjQ.$.trim($r.find(".abPrice").first().text()));
+			};
+			upd();
+			var $pr = $c.find(".abSelectorPrice").get(0);
+			if ($pr && window.MutationObserver) {
+				new MutationObserver(upd).observe($pr, {childList: true, subtree: true});
+			}
+		},
+		// Modern design only: show the payment select as selectable cards (the select stays in the DOM and keeps working)
+		modernPayCards: function () {
+			var $sel = this.$abCalendar.find("select[name='payment_method']");
+			if (!this.$abCalendar.find(".abProg").length || !$sel.length || $sel.siblings(".abPayCards").length) {
+				return;
+			}
+			var $cards = pjQ.$('<div class="abPayCards" role="radiogroup"></div>');
+			$sel.find("option").each(function () {
+				var $o = pjQ.$(this), v = $o.val();
+				if (v === "") {
+					return;
+				}
+				pjQ.$('<button type="button" class="abPayCard" role="radio"></button>').attr("data-value", v).text($o.text()).appendTo($cards);
+			});
+			var sync = function () {
+				$cards.find(".abPayCard").each(function () {
+					var on = pjQ.$(this).attr("data-value") === $sel.val();
+					pjQ.$(this).toggleClass("abPayOn", on).attr("aria-checked", on ? "true" : "false");
+				});
+			};
+			$cards.on("click", ".abPayCard", function () {
+				$sel.val(pjQ.$(this).attr("data-value")).trigger("change");
+				sync();
+				$sel.removeClass("abError").addClass("abValid").closest(".abParagraph").find("label.abError").remove();
+			});
+			$sel.on("change", sync).before($cards);
+			sync();
 		},
 		getBookingForm: function () {
 			var self = this;
@@ -720,6 +1060,7 @@
 				"index": self.opts.index
 			}).done(function (data) {
 				self.$abCalendar.html(data);
+				self.modernUi.call(self);
 				var $frmCheckout = self.$abCalendar.find(".abSelectorBookingForm"),
 					$reCaptcha = self.$abCalendar.find('#g-recaptcha_' + self.opts.cid);
 				if ($reCaptcha.length > 0)
@@ -811,6 +1152,7 @@
 					}
 				});
 				self.$abLoader.hide();
+				self.modernCal.call(self);
 				
 				pjQ.$(window).resize(res).trigger("resize");
 				
@@ -871,6 +1213,7 @@
 			disabled.attr('disabled','disabled');
 			pjQ.$.post([self.opts.folder, "index.php?controller=pjFront&action=pjActionGetSummaryForm&cid=", self.opts.cid, "&view=", self.opts.view, "&locale=", self.opts.locale, "&index=", self.opts.index, "&session_id=", self.opts.session_id].join(""), qs).done(function (data) {
 				self.$abCalendar.html(data);
+				self.modernUi.call(self);
 			}).fail(function () {
 				log("Deferred is rejected");
 				pjQ.$(form).find(":button, :submit").removeAttr("disabled");
@@ -995,6 +1338,7 @@
 		_second: function ($el, time) {
 			this.end_dt = time;
 			this.$secondCell = $el;
+			$el.addClass('abCalendarEndSelect');
 			this.checkDates.call(this, $el.get(0));
 			//this.getBookingForm.call(this);
 		},
@@ -1036,7 +1380,7 @@
 				//index = pjQ.$.inArray(false, passDate);
 				index = pjQ.$.inArray(false, passedDate);
 				if (index !== -1) {
-					msg = this.opts.error_msg.limits;
+					msg = (this.opts.price_based_on === "days" && this.opts.error_msg.limits_days) ? this.opts.error_msg.limits_days : this.opts.error_msg.limits;
 					if (msg.indexOf("{MIN}") === -1 || msg.indexOf("{MAX}") === -1 || msg.indexOf("{YOUR}") === -1) {
 						msg = this.opts.error_msg.limit;
 					}
@@ -1451,3 +1795,56 @@ function res() {
 	_td.height(td_width);
 	_td.css({"line-height": td_width + "px"});
 }
+/* Input hygiene: no leading/trailing/duplicate whitespace where it is not valid (mirrors app/config/input.inc.php). */
+(function(){
+	var WS = /^[\s\u00A0\u200B-\u200D\uFEFF]+|[\s\u00A0\u200B-\u200D\uFEFF]+$/g;
+	var INNER = /[\s\u00A0]+/g;
+	function scope(el){ return el.closest && (el.closest('form') || el.closest('.abForm')); }
+	function applies(el){
+		if (!el || !el.tagName || !el.name || !el.closest || !el.closest('.abForm, form[class*="abSelector"]')) { return false; }
+		var t = (el.type || '').toLowerCase(), tag = el.tagName.toLowerCase();
+		if (tag === 'textarea') { return true; }
+		if (tag !== 'input') { return false; }
+		if (/^(password|hidden|file|checkbox|radio|submit|button|image|reset|range|color)$/.test(t)) { return false; }
+		if (/pass|csrf|token|cc_|captcha/i.test(el.name)) { return false; }
+		return true;
+	}
+	function kind(el){
+		var n = (el.name || '').toLowerCase();
+		if (el.tagName.toLowerCase() === 'textarea') { return 'text'; }
+		if (/email/.test(n)) { return 'email'; }
+		if (/(^|_|\[)(code|uuid|alpha_2|alpha_3)(_|\]|$)/.test(n)) { return 'token'; }
+		if (/(^|_|\[)(name|city|state|company)(\]|$)/.test(n) || n === 'name') { return 'name'; }
+		if (/phone|zip/.test(n)) { return 'phone'; }
+		return 'line';
+	}
+	function clean(el){
+		if (!applies(el)) { return; }
+		var v = el.value, k = kind(el), o = v;
+		v = v.replace(WS, '');
+		if (k === 'name' || k === 'phone') { v = v.replace(INNER, ' '); }
+		else if (k === 'token' || k === 'email') { if (k === 'token') { v = v.replace(INNER, ''); } }
+		if (v !== o) { el.value = v; }
+	}
+	document.addEventListener('blur', function(e){ clean(e.target); }, true);
+	document.addEventListener('change', function(e){ clean(e.target); }, true);
+	document.addEventListener('paste', function(e){ var t = e.target; setTimeout(function(){ if (applies(t) && kind(t) !== 'text') { clean(t); } }, 0); }, true);
+	document.addEventListener('keydown', function(e){
+		var t = e.target;
+		if (!applies(t) || e.ctrlKey || e.metaKey) { return; }
+		if ((e.key === ' ' || e.keyCode === 32) && (!t.value.length || (t.selectionStart === 0 && t.selectionEnd === 0))) { e.preventDefault(); return; }
+		var k = kind(t);
+		if ((e.key === ' ' || e.keyCode === 32) && (k === 'email' || k === 'token')) { e.preventDefault(); return; }
+		if ((e.key === ' ' || e.keyCode === 32) && (k === 'name' || k === 'phone') && t.selectionStart > 0 && t.value.charAt(t.selectionStart - 1) === ' ') { e.preventDefault(); }
+	}, true);
+	document.addEventListener('submit', function(e){
+		var f = e.target; if (!f || !f.elements) { return; }
+		for (var i = 0; i < f.elements.length; i++) { clean(f.elements[i]); }
+	}, true);
+	// jQuery-validate / click driven submits: normalise just before any button inside a form is processed
+	document.addEventListener('click', function(e){
+		var b = e.target && e.target.closest ? e.target.closest('button, input[type=submit]') : null;
+		var f = b && b.form;
+		if (f) { for (var i = 0; i < f.elements.length; i++) { clean(f.elements[i]); } }
+	}, true);
+})();

@@ -1,0 +1,185 @@
+@CHARSET "UTF-8";
+/* ==========================================================================
+   Availability Booking Calendar - Modern, "all calendars" availability overview.
+   Same --modern-* variables as modern.css. "[calendarContainer]" is replaced with .abAvailability
+   ========================================================================== */
+[calendarContainer]{
+	--modern-page:#edf4fa; --modern-card:#ffffff; --modern-soft:#d3e5f4; --modern-line:#e0ecf6; --modern-accent:#4f93c9;
+	--modern-heading:#1b3550; --modern-body:#3f556c; --modern-muted:#5b6e81; --modern-link:#245f93;
+	--modern-btn:#2a6fa8; --modern-btn-text:#ffffff; --modern-btn-hover:#1f5a8c; --modern-btn2:#ffffff; --modern-btn2-text:#245f93;
+	--modern-free:#dcefe6; --modern-free-text:#256a50;
+	--modern-booked:#f3cfc4; --modern-booked-text:#a53a22;
+	--modern-pending:#fbe5b5; --modern-pending-text:#8a5a00;
+	--modern-past:#f6f0ec; --modern-past-text:#b8a8a1;
+	--modern-font-head:'Poppins',system-ui,sans-serif; --modern-font-body:'Poppins',system-ui,sans-serif; --modern-fs:14px;
+	--modern-r:18px; --modern-rb:12px; --modern-ri:10px; --modern-cell:12px;
+	--modern-shadow:0 10px 30px color-mix(in srgb, var(--modern-heading) 10%, transparent);
+
+	box-sizing: border-box;
+	background: var(--modern-page);
+	border-radius: var(--modern-r);
+	padding: 12px;
+	color: var(--modern-body);
+	font: normal var(--modern-fs)/1.45 var(--modern-font-body);
+}
+[calendarContainer] *,
+[calendarContainer] *:before,
+[calendarContainer] *:after{ box-sizing: border-box; }
+[calendarContainer] a:link,
+[calendarContainer] a:visited,
+[calendarContainer] a:active,
+[calendarContainer] a:hover,
+[calendarContainer] a:focus{
+	color: var(--modern-link);
+	text-decoration: none;
+	font-weight: 600;
+}
+[calendarContainer] a:hover{ text-decoration: underline; }
+[calendarContainer] .abMenu{
+	height: auto;
+	background: transparent;
+	margin: 0 0 10px;
+}
+[calendarContainer] .abMenuLocale li{
+	height: auto;
+	padding: 0 0 0 6px;
+}
+[calendarContainer] .abMenuLocale a{
+	border: 2px solid transparent;
+	border-radius: 6px;
+	width: auto;
+	height: auto;
+	padding: 1px;
+	background: var(--modern-card);
+}
+[calendarContainer] .abMenuLocale a.abLocaleFocus,
+[calendarContainer] .abMenuLocale a:hover{ border-color: var(--modern-accent); }
+
+[calendarContainer] .abCal-container{
+	background: var(--modern-card);
+	border-radius: var(--modern-r);
+	box-shadow: var(--modern-shadow);
+	padding: 14px;
+}
+[calendarContainer] .abCal-title,
+[calendarContainer] .abCal-head,
+[calendarContainer] .abCal-program{
+	border-bottom: 1px solid var(--modern-line);
+}
+[calendarContainer] .abCal-title{ color: var(--modern-body); font-family: var(--modern-font-body); }
+[calendarContainer] .abCal-title .abCal-note{ color: var(--modern-muted); font-size: calc(var(--modern-fs) * 0.9); }
+[calendarContainer] .abCal-title a.abCal-link{ color: var(--modern-link); font-weight: 600; }
+
+/* header: month name + day numbers */
+[calendarContainer] .abCal-head-row span{
+	background: transparent;
+	color: var(--modern-muted);
+	font-weight: 600;
+	font-size: calc(var(--modern-fs) * 0.85);
+}
+[calendarContainer] .abCal-head-row:first-child span{
+	color: var(--modern-heading);
+	font-family: var(--modern-font-head);
+	font-size: calc(var(--modern-fs) * 1.15);
+}
+[calendarContainer] .abCal-head-row a:link,
+[calendarContainer] .abCal-head-row a:visited,
+[calendarContainer] .abCal-head-row a:active,
+[calendarContainer] .abCal-head-row a:hover,
+[calendarContainer] .abCal-head-row a:focus{
+	color: var(--modern-link);
+	text-decoration: none !important;
+}
+[calendarContainer] .abCal-head-row span,
+[calendarContainer] .abCal-program span{ background-image: none; }
+
+/* day cells: rounded blocks separated by a thin card-coloured gap */
+[calendarContainer] .abCal-program span{
+	background-color: var(--modern-free);
+	color: var(--modern-free-text);
+	border-radius: calc(var(--modern-cell) * 0.5);
+	box-shadow: inset 0 0 0 2px var(--modern-card);
+	cursor: default;
+}
+[calendarContainer] .abCal-program span.abCalendarReserved{
+	background-color: var(--modern-booked);
+	/* same diagonal stripes as booked days in the calendar */
+	background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px);
+	color: var(--modern-booked-text);
+}
+[calendarContainer] .abCal-program span.abCalendarPending{
+	background-color: var(--modern-pending);
+	color: var(--modern-pending-text);
+}
+[calendarContainer] .abCal-program span.abCalendarPast{
+	background-color: var(--modern-past);
+	color: var(--modern-past-text);
+}
+[calendarContainer] .abCal-program span.abCal-imgOuter .abCal-imgWrap{ display: none; }
+[calendarContainer] .abCal-program span.abCalendarReservedNightsStart{ background-color: var(--modern-booked); background-image: linear-gradient(135deg, var(--modern-free) 0 50%, transparent 50% 100%), repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px); }
+[calendarContainer] .abCal-program span.abCalendarReservedNightsEnd{ background-color: var(--modern-booked); background-image: linear-gradient(135deg, transparent 0 50%, var(--modern-free) 50% 100%), repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px); }
+[calendarContainer] .abCal-program span.abCalendarPendingNightsStart{ background-image: linear-gradient(135deg, var(--modern-free) 0 50%, var(--modern-pending) 50% 100%); }
+[calendarContainer] .abCal-program span.abCalendarPendingNightsEnd{ background-image: linear-gradient(135deg, var(--modern-pending) 0 50%, var(--modern-free) 50% 100%); }
+[calendarContainer] .abCal-program span.abCalendarNightsReservedPending{ background-color: var(--modern-booked); background-image: linear-gradient(135deg, transparent 0 50%, var(--modern-pending) 50% 100%), repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px); }
+[calendarContainer] .abCal-program span.abCalendarNightsPendingReserved{ background-color: var(--modern-booked); background-image: linear-gradient(135deg, var(--modern-pending) 0 50%, transparent 50% 100%), repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px); }
+[calendarContainer] .abCal-program span.abCalendarNightsReservedReserved{ background-color: var(--modern-booked); background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--modern-card) 45%, transparent) 6px 8px); }
+[calendarContainer] .abCal-program span.abCalendarNightsPendingPending{ background-color: var(--modern-pending); }
+/* past days: always shown as "past", whatever their status (same as the calendar) - keep after the status rules so it wins */
+[calendarContainer] .abCal-program span.abCalendarPast{
+	background-color: var(--modern-past);
+	background-image: none;
+	color: var(--modern-past-text);
+}
+
+/* ---- loader ---- */
+[calendarContainer] .abLoader{
+	min-height: 150px;
+	padding: 28px 16px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	background: var(--modern-card);
+	border-radius: var(--modern-r);
+	box-shadow: var(--modern-shadow);
+	overflow: hidden;
+	text-align: center;
+}
+[calendarContainer] .abLoader .abLoaderInner{
+	position: relative;
+	width: 44px;
+	height: 44px;
+	margin: 0;
+}
+[calendarContainer] .abLoader .abLoaderInner .spinner-container{ display: none; }
+[calendarContainer] .abLoader .abLoaderInner:before,
+[calendarContainer] .abLoader .abLoaderInner:after{
+	content: "";
+	position: absolute;
+	top: 0; right: 0; bottom: 0; left: 0;
+	border-radius: 50%;
+	border: 4px solid var(--modern-soft);
+}
+[calendarContainer] .abLoader .abLoaderInner:after{
+	border-color: transparent;
+	border-top-color: var(--modern-accent);
+	border-right-color: var(--modern-accent);
+	-webkit-animation: modernSpin .9s cubic-bezier(.5, .1, .5, .9) infinite;
+	animation: modernSpin .9s cubic-bezier(.5, .1, .5, .9) infinite;
+}
+[calendarContainer] .abLoader .abLoaderMessage{
+	font-family: var(--modern-font-body);
+	font-size: calc(var(--modern-fs) * 0.9);
+	line-height: 1.3;
+	color: var(--modern-muted);
+}
+[calendarContainer] .abLoader .abLoaderMessage:empty{ display: none; }
+@-webkit-keyframes modernSpin{ to{ -webkit-transform: rotate(360deg); } }
+@keyframes modernSpin{ to{ transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){
+	[calendarContainer] .abLoader .abLoaderInner:after{ -webkit-animation-duration: 2.4s; animation-duration: 2.4s; }
+}
+
+/* outer container: no coloured background (fits any client website) */
+[calendarContainer]{ background: transparent; }

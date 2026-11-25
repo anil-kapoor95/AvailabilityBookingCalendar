@@ -228,18 +228,39 @@ $reservation_statuses = __('reservation_statuses', true);
 									<?php __('lblReservationPriceDetailsDesc');?>
 								</div>
 
-								<div class="row">
-									<div class="col-lg-3 col-md-4 col-sm-6">
+								<?php $has_voucher = !empty($tpl['arr']['voucher_code']); $vch_col = $has_voucher ? 'col-xs-12' : 'col-lg-3 col-md-4 col-sm-6'; ?>
+								<?php if ($has_voucher) : ?>
+								<style>
+								.abv-amount-row{display:flex;flex-wrap:wrap;align-items:flex-end}
+								.abv-amount-row>div{flex:1 1 0;min-width:150px;float:none}
+								.abv-amount-row label{white-space:nowrap}
+								</style>
+								<?php endif; ?>
+								<div class="row<?php echo $has_voucher ? ' abv-amount-row' : ''; ?>">
+									<div class="<?php echo $vch_col; ?>">
 										<div class="form-group">
 											<label><?php __('lblReservationAmount'); ?></label>
 											<div class="input-group">
-												<input type="text" class="form-control number" name="amount" id="amount" value="<?php echo $tpl['arr']['amount'];?>" data-msg-required="<?php __('pj_field_required');?>" data-msg-number="<?php __('pj_field_number');?>">
+												<input type="text" class="form-control number" name="amount" id="amount" value="<?php echo $has_voucher ? number_format((float) $tpl['arr']['amount'] + (float) $tpl['arr']['discount'], 2, '.', '') : $tpl['arr']['amount'];?>" data-msg-required="<?php __('pj_field_required');?>" data-msg-number="<?php __('pj_field_number');?>">
 												<span class="input-group-addon"><?php echo pjCurrency::getCurrencySign($tpl['option_arr']['o_currency']);?></span>
 											</div>
 										</div>
 									</div>
 		
-									<div class="col-lg-3 col-md-4 col-sm-6">
+									<?php if ($has_voucher) : ?>
+									<div class="<?php echo $vch_col; ?>">
+										<div class="form-group">
+											<label><?php __('plugin_vouchers_front_label_discount'); ?> (<?php echo pjSanitize::html($tpl['arr']['voucher_code']); ?>)</label>
+											<div class="input-group">
+												<input type="text" class="form-control number" id="voucher_discount" value="-<?php echo number_format((float) $tpl['arr']['discount'], 2, '.', ''); ?>" readonly="readonly" />
+												<input type="hidden" name="voucher_code" value="<?php echo pjSanitize::html($tpl['arr']['voucher_code']); ?>" />
+												<input type="hidden" name="discount" id="voucher_discount_val" value="<?php echo number_format((float) $tpl['arr']['discount'], 2, '.', ''); ?>" />
+												<span class="input-group-addon"><?php echo pjCurrency::getCurrencySign($tpl['option_arr']['o_currency']);?></span>
+											</div>
+										</div>
+									</div>
+									<?php endif; ?>
+									<div class="<?php echo $vch_col; ?>">
 										<div class="form-group">
 											<label><?php __('lblReservationTax'); ?></label>
 											<div class="input-group">
@@ -249,7 +270,7 @@ $reservation_statuses = __('reservation_statuses', true);
 										</div>
 									</div>
 		
-									<div class="col-lg-3 col-md-4 col-sm-6">
+									<div class="<?php echo $vch_col; ?>">
 										<div class="form-group">
 											<?php
 											$total =  $tpl['arr']['amount'] + $tpl['arr']['tax'];
@@ -266,7 +287,7 @@ $reservation_statuses = __('reservation_statuses', true);
 										</div>
 									</div>
 		
-									<div class="col-lg-3 col-md-4 col-sm-6">
+									<div class="<?php echo $vch_col; ?>">
 										<div class="form-group">
 											<label><?php __('lblReservationDeposit'); ?></label>
 											<div class="input-group">
@@ -443,6 +464,17 @@ $reservation_statuses = __('reservation_statuses', true);
 						</div>
 						<div class="m-b-md">
 							<a href="javascript:void(0);" class="widget widget-bg">
+								<?php if (!empty($tpl['arr']['voucher_code'])) : ?>
+								<p class="m-b-xs">
+									 <?php __('lblReservationAmount');?>: <strong class="pull-right"><?php echo pjCurrency::formatPrice((float) $tpl['arr']['amount'] + (float) $tpl['arr']['discount'], " ", NULL, $tpl['option_arr']['o_currency']); ?></strong>
+								</p>
+								<p class="m-b-xs">
+									 <?php __('plugin_vouchers_front_label_discount');?> (<?php echo pjSanitize::html($tpl['arr']['voucher_code']); ?>): <strong class="pull-right">-<?php echo pjCurrency::formatPrice((float) $tpl['arr']['discount'], " ", NULL, $tpl['option_arr']['o_currency']); ?></strong>
+								</p>
+								<p class="m-b-xs">
+									 <?php __('lblReservationTax');?>: <strong class="pull-right"><?php echo pjCurrency::formatPrice((float) $tpl['arr']['tax'], " ", NULL, $tpl['option_arr']['o_currency']); ?></strong>
+								</p>
+								<?php endif; ?>
 								<p class="lead m-b-xs">
 									 <?php __('lblReservationTotalPrice');?>: <strong class="pull-right cr-total-quote"><?php echo pjCurrency::formatPrice($total, " ", NULL, $tpl['option_arr']['o_currency']);?></strong>
 								</p>

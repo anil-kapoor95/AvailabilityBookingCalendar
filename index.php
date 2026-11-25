@@ -37,6 +37,7 @@ if (!defined("ROOT_PATH"))
 }
 $_SERVER['PHP_SELF'] = htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES);
 require ROOT_PATH . 'app/config/options.inc.php';
+require ROOT_PATH . 'app/config/input.inc.php';
 require_once PJ_FRAMEWORK_PATH . 'pjAutoloader.class.php';
 pjAutoloader::register();
 if (!isset($_GET['controller']) || empty($_GET['controller']))

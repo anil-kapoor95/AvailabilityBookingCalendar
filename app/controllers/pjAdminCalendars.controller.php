@@ -220,7 +220,8 @@ class pjAdminCalendars extends pjAdmin
 		{
 			$pjCalendarModel = pjCalendarModel::factory()
 				->join('pjMultiLang', "t2.foreign_id = t1.id AND t2.model = 'pjCalendar' AND t2.locale = '".$this->getLocaleId()."' AND t2.field = 'name'", 'left')
-				->join('pjAuthUser', 't3.id=t1.user_id', 'left outer');
+				->join('pjAuthUser', 't3.id=t1.user_id', 'left outer')
+				->join('pjMultiLang', "t4.foreign_id = t1.id AND t4.model = 'pjCalendar' AND t4.locale = '".(int) $this->getDefaultLocaleId()."' AND t4.field = 'name'", 'left');
 			
 			if($this->isOwner())
 			{
@@ -255,7 +256,7 @@ class pjAdminCalendars extends pjAdmin
 			}
 
 			$data = $pjCalendarModel
-				->select("t1.id, t1.uuid, t1.status, t2.content AS name, t3.name AS owner_name,
+				->select("t1.id, t1.uuid, t1.status, IF(t2.content IS NULL OR t2.content = '', t4.content, t2.content) AS name, t3.name AS owner_name,
 					(SELECT CONCAT(`TR`.`id`,'~:~',IFNULL(`TR`.`c_name`, ''),'~:~',IFNULL(`TR`.`c_email`, ''),'~:~',`TR`.`created`) FROM `".pjReservationModel::factory()->getTable()."` AS `TR` WHERE `TR`.`calendar_id`=t1.id ORDER BY `TR`.`created` DESC LIMIT 1) AS `latest_booking`, 
 					(SELECT `TR`.`created` FROM `".pjReservationModel::factory()->getTable()."` AS `TR` WHERE `TR`.`calendar_id`=t1.id ORDER BY `TR`.`created` DESC LIMIT 1) AS `latest_booking_created`,
 					(SELECT `value` FROM `".pjOptionModel::factory()->getTable()."` WHERE `foreign_id`=t1.id AND `key`='o_price_plugin') AS `o_price_plugin`")
@@ -370,6 +371,59 @@ class pjAdminCalendars extends pjAdmin
 		}
 	}
 	
+	/**
+	 * Modern design: saves (or resets) the "Customize design" panel of one calendar.
+	 * Only validated values are stored (see pjAppController::getModernSettings).
+	 */
+	public function pjActionSaveModern()
+	{
+		$this->setAjax(true);
+		
+		if (!$this->isXHR())
+		{
+			self::jsonResponse(array('status' => 'ERR', 'code' => 100, 'text' => 'Missing headers.'));
+		}
+		if (!self::isPost())
+		{
+			self::jsonResponse(array('status' => 'ERR', 'code' => 101, 'text' => 'HTTP method not allowed.'));
+		}
+		if (!pjAuth::factory($this->_get->toString('controller'), 'pjActionUpdate')->hasAccess())
+		{
+			self::jsonResponse(array('status' => 'ERR', 'code' => 102, 'text' => 'Access denied.'));
+		}
+		pjAppController::validateCsrfToken();
+		
+		$calendar_id = $this->_get->toInt('id');
+		$arr = pjCalendarModel::factory()->find($calendar_id)->getData();
+		if (!$arr)
+		{
+			self::jsonResponse(array('status' => 'ERR', 'code' => 103, 'text' => 'Calendar is not found.'));
+		}
+		if ($this->isOwner() && (int) $arr['user_id'] !== (int) $this->getUserId())
+		{
+			self::jsonResponse(array('status' => 'ERR', 'code' => 104, 'text' => 'Access denied.'));
+		}
+		
+		$json = '';
+		if (!$this->_post->check('reset') && $this->_post->check('settings'))
+		{
+			$settings = pjAppController::getModernSettings($this->_post->toString('settings'));
+			if (!empty($settings))
+			{
+				$json = json_encode($settings);
+			}
+		}
+		
+		pjOptionModel::factory()->ensureModernOptions($calendar_id);
+		pjOptionModel::factory()
+			->where('foreign_id', $calendar_id)
+			->where('`key`', 'o_modern_colors')
+			->limit(1)
+			->modifyAll(array('value' => $json));
+		
+		self::jsonResponse(array('status' => 'OK', 'code' => 200, 'text' => 'Design saved.'));
+	}
+	
 	public function pjActionUpdate()
     {
         $this->checkLogin();
@@ -382,6 +436,8 @@ class pjAdminCalendars extends pjAdmin
         $pjLimitModel = pjLimitModel::factory();
         
         $calendar_id = $this->getCalendarId(); 
+        # Modern design: calendars created before the update was installed get their "Design" rows (Classic)
+        $pjOptionModel->ensureModernOptions($calendar_id);
         if ($this->_post->check('calendar_update'))
         {
 	        $pjOptionModel
@@ -398,6 +454,10 @@ class pjAdminCalendars extends pjAdmin
 	                if (!empty($k))
 	                {
 	                    $_value = ':NULL';
+	                    if ($k == 'o_bookings_per_day' && $type == 'int' && (int) $value < 1)
+	                    {
+	                        $value = 1;
+	                    }
 	                    if ($value)
 	                    {
 	                        switch ($type)
@@ -411,6 +471,19 @@ class pjAdminCalendars extends pjAdmin
 	                            case 'int':
 	                            case 'bool':
 	                                $_value = $this->_post->toInt($key);
+	                                if ($type == 'int')
+	                                {
+	                                    # No negative numbers; tax and a percent deposit cannot exceed 100; at least one booking per day
+	                                    $_value = max(0, (int) $_value);
+	                                    if ($k == 'o_tax' || ($k == 'o_deposit' && strpos((string) $this->_post->toString('value-enum-o_deposit_type'), '::percent') !== false))
+	                                    {
+	                                        $_value = min(100, $_value);
+	                                    }
+	                                    if ($k == 'o_bookings_per_day')
+	                                    {
+	                                        $_value = max(1, $_value);
+	                                    }
+	                                }
 	                                break;
 	                            case 'float':
 	                                $_value = $this->_post->toFloat($key);

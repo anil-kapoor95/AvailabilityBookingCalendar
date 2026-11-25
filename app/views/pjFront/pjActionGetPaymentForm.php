@@ -7,10 +7,19 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 		</div>
 	</div>
 	<?php
-} else { ?>
+} else {
+	$modern_step = 4;
+	include dirname(__FILE__) . '/elements/steps.php';
+	?>
 	<div class="abForm abPaymentForm">
 		<div class="abBox abGray">
 			<?php
+			if (isset($stepOpt['o_theme']) && $stepOpt['o_theme'] == 'modern' && !empty($tpl['booking_arr']['uuid']))
+			{
+				$refLabel = __('modern_done_ref', true);
+				$refLabel = (is_string($refLabel) && trim($refLabel) !== '' && $refLabel !== 'modern_done_ref' && !preg_match('/^[?\s]+$/u', $refLabel)) ? $refLabel : 'Booking ID';
+				?><span class="abRef"><?php echo htmlspecialchars($refLabel . ': ' . $tpl['booking_arr']['uuid']); ?></span><?php
+			}
 			if (isset($tpl['get']['payment_method']))
 			{
 				$status = __('front_booking_status', true);

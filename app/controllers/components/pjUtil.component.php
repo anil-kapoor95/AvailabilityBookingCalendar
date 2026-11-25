@@ -434,5 +434,54 @@ class pjUtil extends pjToolkit
 	{
 		return '<html><head><title></title></head><body>'.stripslashes($content).'</body></html>';
 	}
+
+	/**
+	 * Server-side validation of contact/person fields (names, e-mail, phone ...).
+	 * Values are expected to be already trimmed by app/config/input.inc.php.
+	 * Returns array(field => 'required'|'email'|'name'|'phone'), empty when valid.
+	 * $required: list of field keys that must be non-empty.
+	 */
+	public static function validatePersonFields($data, $required = array())
+	{
+		$err = array();
+		$ws = "/^[\\s\\x{00A0}\\x{200B}-\\x{200D}\\x{FEFF}]*$/u";
+		foreach ($data as $k => $v)
+		{
+			if (is_array($v)) continue;
+			$v = (string) $v;
+			$empty = (bool) preg_match($ws, $v);
+			if ($empty)
+			{
+				if (in_array($k, $required, true)) $err[$k] = 'required';
+				continue;
+			}
+			if ($v !== trim($v) || preg_match('/^\s|\s$/u', $v))
+			{
+				$err[$k] = 'name'; continue; // leading / trailing whitespace must never reach storage
+			}
+			if (preg_match('/(^|_)(name|first_name|last_name)$/', $k) && (preg_match('/\s{2,}/u', $v) || preg_match('/[<>\x00-\x1F]/', $v)))
+			{
+				$err[$k] = 'name';
+			}
+			elseif (preg_match('/email$/', $k) && !filter_var($v, FILTER_VALIDATE_EMAIL))
+			{
+				$err[$k] = 'email';
+			}
+			elseif (preg_match('/phone$/', $k) && !preg_match('/^[0-9+\-().\/ ]{3,30}$/', $v))
+			{
+				$err[$k] = 'phone';
+			}
+		}
+		foreach ($required as $k)
+		{
+			if (!array_key_exists($k, $data) && !isset($err[$k])) $err[$k] = 'required';
+		}
+		return $err;
+	}
+
+	public static function getWeekdays()
+	{
+		return array('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday');
+	}
 }
 ?>

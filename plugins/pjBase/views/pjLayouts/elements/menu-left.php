@@ -24,6 +24,44 @@ $isAPIKeys = $isOptionsController && $action_name == 'pjActionApiKeys';
 
 $isSystemOptions = $isGeneralOptions || $isBackup || $isLocale || $isSms || $isVisualBranding || $isCronJobs || $isCountries || $isEmailSettings || $isLoginProtection || $isCaptchaSpam || $isAPIKeys;
 ?>
+<style>
+    #side-menu .pj-sidebar-customization {
+        margin: 16px 8px 8px;
+    }
+
+    #side-menu .pj-sidebar-customization > a {
+        border: 1px solid var(--admin-primary-light, rgba(249, 115, 22, .45));
+        border-radius: 8px;
+        background: var(--admin-primary-lighter, rgba(249, 115, 22, .12)) !important;
+        color: var(--admin-sidebar-text, #f97316) !important;
+        font-weight: 600 !important;
+        box-shadow: none;
+    }
+
+    #side-menu .pj-sidebar-customization > a .nav-label,
+    #side-menu .pj-sidebar-customization > a .fa,
+    #side-menu .pj-sidebar-customization > a:hover .nav-label,
+    #side-menu .pj-sidebar-customization > a:hover .fa {
+        color: var(--admin-sidebar-text, #f97316) !important;
+    }
+
+    #side-menu .pj-sidebar-customization > a:hover,
+    #side-menu .pj-sidebar-customization > a:focus {
+        background: var(--admin-primary-light, rgba(249, 115, 22, .20)) !important;
+        border-color: var(--admin-primary, #f97316);
+        color: var(--admin-sidebar-text, #c2570c) !important;
+    }
+
+    #side-menu .pj-sidebar-customization > a:hover .nav-label,
+    #side-menu .pj-sidebar-customization > a:hover .fa {
+        color: var(--admin-sidebar-text, #c2570c) !important;
+    }
+
+    @keyframes pjCustomPulse {
+        0%, 100% { box-shadow: 0 2px 8px rgba(249, 115, 22, .30); }
+        50%      { box-shadow: 0 2px 18px rgba(249, 115, 22, .70); }
+    }
+</style>
 <nav class="navbar-default navbar-static-side" role="navigation">
     <div class="sidebar-collapse">
         <ul class="nav metismenu" id="side-menu">
@@ -154,6 +192,16 @@ $isSystemOptions = $isGeneralOptions || $isBackup || $isLocale || $isSms || $isV
 		        include $main_script_menu;
 		    }
             ?>
+
+            <?php if ((int)pjAuth::factory()->getRoleId() !== 4): ?>
+            <li class="pj-sidebar-customization">
+                <a href="https://www.phpjabbers.com/contact.php" target="_blank" rel="noopener">
+                    <i class="fa fa-life-ring"></i>
+                    <span class="nav-label"><?php $customizationLabel = __('menu_request_customization', true);
+                                            echo !empty($customizationLabel) && $customizationLabel !== 'menu_request_customization' ? htmlspecialchars($customizationLabel, ENT_QUOTES, 'UTF-8') : 'Request customization'; ?></span>
+                </a>
+            </li>
+            <?php endif; ?>
         </ul>
     </div>
 </nav><!-- /Static Sidebar -->

@@ -59,6 +59,42 @@ class pjOptionModel extends pjAppModel
 		return $arr;
 	}
 
+	/**
+	 * Modern design: makes sure a calendar has its "o_theme" and "o_modern_colors" rows.
+	 * Calendars that existed before the update was installed get "Classic", so their look does not change.
+	 */
+	public function ensureModernOptions($calendar_id)
+	{
+		$calendar_id = (int) $calendar_id;
+		if ($calendar_id <= 0)
+		{
+			return $this;
+		}
+		$rows = array(
+			'o_theme' => array('classic|modern::modern', 'Classic|Modern', 'enum', 1),
+			'o_modern_colors' => array('', '', 'string', 0)
+		);
+		foreach ($rows as $key => $def)
+		{
+			$cnt = self::factory()->where('foreign_id', $calendar_id)->where('`key`', $key)->findCount()->getData();
+			if ((int) $cnt === 0)
+			{
+				self::factory()->setAttributes(array(
+					'foreign_id' => $calendar_id,
+					'key' => $key,
+					'tab_id' => 2,
+					'value' => $def[0],
+					'label' => $def[1],
+					'type' => $def[2],
+					'order' => 0,
+					'is_visible' => $def[3],
+					'style' => ''
+				))->insert();
+			}
+		}
+		return $this;
+	}
+
 	public function init($calendar_id)
 	{
 	    $data = array(
@@ -132,6 +168,8 @@ class pjOptionModel extends pjAppModel
 	        array($calendar_id, 'o_show_prices', 1, '1|0::1', '', 'bool', 8, 1, ''),
 	        array($calendar_id, 'o_show_week_numbers', 1, '1|0::1', '', 'bool', 9, 1, ''),
 	        
+	        array($calendar_id, 'o_theme', 2, 'classic|modern::modern', 'Classic|Modern', 'enum', 0, 1, ''),
+	        array($calendar_id, 'o_modern_colors', 2, '', '', 'string', 0, 0, ''),
 	        array($calendar_id, 'o_week_start', 1, '0|1|2|3|4|5|6::1', 'Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday', 'enum', 11, 1, ''),
 	        array($calendar_id, 'o_date_format', 1, 'd.m.Y|m.d.Y|Y.m.d|j.n.Y|n.j.Y|Y.n.j|d/m/Y|m/d/Y|Y/m/d|j/n/Y|n/j/Y|Y/n/j|d-m-Y|m-d-Y|Y-m-d|j-n-Y|n-j-Y|Y-n-j::d.m.Y', 'd.m.Y (25.09.2012)|m.d.Y (09.25.2012)|Y.m.d (2012.09.25)|j.n.Y (25.9.2012)|n.j.Y (9.25.2012)|Y.n.j (2012.9.25)|d/m/Y (25/09/2012)|m/d/Y (09/25/2012)|Y/m/d (2012/09/25)|j/n/Y (25/9/2012)|n/j/Y (9/25/2012)|Y/n/j (2012/9/25)|d-m-Y (25-09-2012)|m-d-Y (09-25-2012)|Y-m-d (2012-09-25)|j-n-Y (25-9-2012)|n-j-Y (9-25-2012)|Y-n-j (2012-9-25)', 'enum', 12, 1, ''),
 	        array($calendar_id, 'o_month_year_format', 1, 'Month Year|Month, Year|Year Month|Year, Month::Month Year', '', 'enum', 13, 1, ''),

@@ -145,10 +145,46 @@ var jQuery = jQuery || $.noConflict();
 			});
 		}
 		
+		function voucherUI(data, vd) {
+			if ($("#voucher_input").length === 0) { return; }
+			var wanted = $.trim($("#voucher_code").val()),
+				$msg = $("#voucher_msg");
+			if (data.voucher_code) {
+				$("#voucher_code").val(data.voucher_code);
+				$("#voucher_input").val(data.voucher_code).prop("readonly", true);
+				$("#voucher_discount_code").text("(" + data.voucher_code + ")");
+				$("#voucher_discount_col").show();
+				$(".btnApplyVoucher").hide();
+				$(".btnRemoveVoucher").show();
+				$msg.removeClass("text-danger").addClass("text-success").text(data.voucher_text || "");
+			} else {
+				$("#voucher_code").val("");
+				$("#voucher_discount_col").hide();
+				$("#voucher_input").prop("readonly", false);
+				$(".btnApplyVoucher").show();
+				$(".btnRemoveVoucher").hide();
+				$msg.removeClass("text-success");
+				if (wanted !== "" && data.voucher_text) {
+					$msg.addClass("text-danger").text(data.voucher_text);
+				} else {
+					$msg.removeClass("text-danger").text("");
+				}
+			}
+		}
+
 		function calcPrices(callback) {
 			$.post("index.php?controller=pjAdminReservations&action=pjActionCalcPrice", $(this).closest("form").serialize()).done(function (data) {
 				if (data.status === "OK") {
-					$("#amount").val(data.amount).valid();
+					if ($("#voucher_discount").length > 0) {
+						// voucher reservation: Amount is shown BEFORE the discount, like the front-end breakdown
+						var vd = data.voucher_code ? parseFloat(data.discount) || 0 : 0;
+						voucherUI(data, vd);
+						$("#voucher_discount_val").val(vd.toFixed(2));
+						$("#voucher_discount").val("-" + vd.toFixed(2));
+						$("#amount").val((parseFloat(data.amount) + vd).toFixed(2)).valid();
+					} else {
+						$("#amount").val(data.amount).valid();
+					}
 					$("#deposit").val(data.deposit).valid();
 					$("#tax").val(data.tax).valid();
 					$("#total").val(data.total).valid();
@@ -220,6 +256,27 @@ var jQuery = jQuery || $.noConflict();
 				return true;
 			}
 		}
+		
+		$(document).on("click", ".btnApplyVoucher", function () {
+			var code = $.trim($("#voucher_input").val());
+			if (code === "") { $("#voucher_msg").removeClass("text-success").addClass("text-danger").text($("#voucher_input").attr("data-msg-empty") || ""); return; }
+			$("#voucher_code").val(code);
+			var $btn = $(this);
+			$.post("index.php?controller=pjAdminReservations&action=pjActionCalcPrice", $btn.closest("form").serialize()).done(function (data) {
+				if (data.status !== "OK") {
+					$("#voucher_code").val("");
+					$("#voucher_msg").removeClass("text-success").addClass("text-danger").text(data.text || "");
+					return;
+				}
+				calcPrices.call($btn[0]);
+			});
+		}).on("click", ".btnRemoveVoucher", function () {
+			$("#voucher_code").val("");
+			$("#voucher_input").val("");
+			calcPrices.call(this);
+		}).on("keydown", "#voucher_input", function (e) {
+			if (e.which === 13) { e.preventDefault(); $(".btnApplyVoucher").trigger("click"); }
+		});
 		
 		$(document).on("click", ".btnCalculate", function () {
 			calcPrices.call(this);

@@ -1,0 +1,9 @@
+*.md
+.DS_Store
+/_to_delete
+*.jpg
+_dbg.php
+_vch_tmp.json
+_vdbg.txt
+*.txt
+/_removed_language_migrations

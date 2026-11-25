@@ -9,7 +9,48 @@ if ((
 	&& !$hasReferer
 	)
 {
-	//skip
+	# The language is fixed by the install code, so there is nothing to choose from; the availability table of all calendars
+	# still shows the flag and code of that language (display only, no drop-down)
+	if ($controller->_get->toString('action') == 'pjActionGetAvailability' && isset($tpl['locale_arr']) && is_array($tpl['locale_arr']))
+	{
+		foreach ($tpl['locale_arr'] as $locale)
+		{
+			if ((int) $locale['id'] !== $controller->_get->toInt('locale'))
+			{
+				continue;
+			}
+			$fixed_title = $locale['language_iso'];
+			$fixed_iso = explode("-", $fixed_title);
+			$fixed_src = NULL;
+			if (isset($fixed_iso[1]))
+			{
+				$fixed_title = $fixed_iso[1];
+			}
+			if (!empty($locale['flag']) && is_file(PJ_INSTALL_PATH . $locale['flag']))
+			{
+				$fixed_src = PJ_INSTALL_URL . $locale['flag'];
+			} elseif (!empty($locale['file']) && is_file(PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $locale['file'])) {
+				$fixed_src = PJ_INSTALL_URL . PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $locale['file'];
+			} else {
+				$flag_country = strtolower(preg_replace('/[^a-z]/i', '', isset($fixed_iso[1]) ? $fixed_iso[1] : $fixed_iso[0]));
+				if ($flag_country !== '' && is_file(PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $flag_country . '.png'))
+				{
+					$fixed_src = PJ_INSTALL_URL . PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $flag_country . '.png';
+				}
+			}
+			?>
+			<div class="abMenu"><div class="row">
+				<div class="col-xs-6"></div>
+				<div class="col-xs-6">
+					<div class="btn-group pull-right pjRpbcLanguage" role="group">
+						<span class="btn btn-default pjRpbcBtnNav abFixedLocale" style="cursor: default; pointer-events: none;" title="<?php echo pjSanitize::html($locale['name']); ?>"><?php if ($fixed_src) { ?><img src="<?php echo $fixed_src; ?>" alt=""> <?php } echo pjSanitize::html($fixed_title); ?></span>
+					</div>
+				</div>
+			</div></div>
+			<?php
+			break;
+		}
+	}
 } else {
 	if($controller->_get->toString('action') == 'pjActionGetCalendar')
 	{
@@ -71,6 +112,13 @@ if ((
 						$selected_src = PJ_INSTALL_URL . $locale['flag'];
 					} elseif (!empty($locale['file']) && is_file(PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $locale['file'])) {
 						$selected_src = PJ_INSTALL_URL . PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $locale['file'];
+					} else {
+						# no flag file stored for this language: derive it from the country part of the language code
+						$flag_country = strtolower(preg_replace('/[^a-z]/i', '', isset($lang_iso[1]) ? $lang_iso[1] : $lang_iso[0]));
+						if ($flag_country !== '' && is_file(PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $flag_country . '.png'))
+						{
+							$selected_src = PJ_INSTALL_URL . PJ_FRAMEWORK_LIBS_PATH . 'pj/img/flags/' . $flag_country . '.png';
+						}
 					}
 					break;
 				}
@@ -79,7 +127,7 @@ if ((
 			<div class="col-xs-6 ">
 				<div class="btn-group  pull-right pjRpbcLanguage" role="group" aria-label="">
 					<button type="button" class="btn btn-default dropdown-toggle pjRpbcBtnNav" data-pj-toggle="dropdown" aria-expanded="false">
-						<img src="<?php echo $selected_src; ?>" alt=""> <?php echo $selected_title;?>
+						<?php if ($selected_src) { ?><img src="<?php echo $selected_src; ?>" alt=""> <?php } echo $selected_title;?>
 						<span class="caret"></span>
 					</button>
 					

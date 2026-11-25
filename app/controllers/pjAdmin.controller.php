@@ -268,7 +268,7 @@ class pjAdmin extends pjAppController
 			->set('calendar_option_arr', $calendar_option_arr);
 			
 		$pjReservationModel->reset()
-			->select("t1.id, t1.uuid, t1.c_name, t1.created, t1.date_from, t1.date_to, t1.status, t1.calendar_id, t3.content AS `calendar_name`")
+			->select("t1.id, t1.uuid, t1.c_name, t1.created, t1.date_from, t1.date_to, t1.status, t1.calendar_id, t1.amount, t1.tax, t3.content AS `calendar_name`")
 			->join('pjCalendar', 't2.id=t1.calendar_id', 'left')
 			->join('pjMultiLang', "t3.model='pjCalendar' AND t3.foreign_id=t1.calendar_id AND t3.field='name' AND t3.locale='".$this->getLocaleId()."'", 'left')
 			->limit(5)

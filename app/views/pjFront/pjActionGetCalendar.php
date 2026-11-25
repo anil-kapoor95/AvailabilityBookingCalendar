@@ -28,6 +28,8 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 			$prev_year = $m - $controller->_get->toInt('view') >= 1 ? $y : $y - 1;
 		}
 	}
+	$modern_step = 1;
+	include dirname(__FILE__) . '/elements/steps.php';
 	include dirname(__FILE__) . '/elements/menu.php';
 	if (isset($tpl['ABCalendar']))
 	{

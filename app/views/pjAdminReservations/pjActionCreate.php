@@ -154,7 +154,32 @@ if ($controller->_get->check('time')) {
 							<?php __('lblReservationPriceDetailsDesc');?>
 						</div>
 												
+						<?php $has_vouchers = pjObject::getPlugin('pjVouchers') !== NULL; ?>
+						<?php if ($has_vouchers) : ?>
+						<style>
+						.abv-amount-row{display:flex;flex-wrap:wrap;align-items:flex-end}
+						.abv-amount-row>div{flex:1 1 0;min-width:150px;float:none}
+						.abv-amount-row label{white-space:nowrap}
+						</style>
 						<div class="row">
+							<div class="col-lg-6 col-md-8">
+								<div class="form-group">
+									<label><?php __('plugin_vouchers_front_label_voucher'); ?></label>
+									<div class="input-group">
+										<input type="text" id="voucher_input" class="form-control" autocomplete="off" maxlength="255" />
+										<span class="input-group-btn">
+											<button type="button" class="btn btn-primary btn-outline btnApplyVoucher"><i class="fa fa-gift"></i> <?php __('plugin_vouchers_front_label_add_voucher'); ?></button>
+											<button type="button" class="btn btn-default btnRemoveVoucher" style="display:none"><i class="fa fa-times"></i> <?php __('plugin_vouchers_front_label_remove_voucher'); ?></button>
+										</span>
+									</div>
+									<p id="voucher_msg" class="help-block m-b-none"></p>
+									<input type="hidden" name="voucher_code" id="voucher_code" value="" />
+									<input type="hidden" name="discount" id="voucher_discount_val" value="0" />
+								</div>
+							</div>
+						</div>
+						<?php endif; ?>
+						<div class="row<?php echo $has_vouchers ? ' abv-amount-row' : ''; ?>">
 							<div class="col-lg-3 col-md-4 col-sm-6">
 								<div class="form-group">
 									<label><?php __('lblReservationAmount'); ?></label>
@@ -165,6 +190,17 @@ if ($controller->_get->check('time')) {
 								</div>
 							</div>
 
+							<?php if ($has_vouchers) : ?>
+							<div class="col-lg-3 col-md-4 col-sm-6" id="voucher_discount_col" style="display:none">
+								<div class="form-group">
+									<label><?php __('plugin_vouchers_front_label_discount'); ?> <span id="voucher_discount_code"></span></label>
+									<div class="input-group">
+										<input type="text" class="form-control number" id="voucher_discount" value="" readonly="readonly" />
+										<span class="input-group-addon"><?php echo pjCurrency::getCurrencySign($tpl['option_arr']['o_currency']);?></span>
+									</div>
+								</div>
+							</div>
+							<?php endif; ?>
 							<div class="col-lg-3 col-md-4 col-sm-6">
 								<div class="form-group">
 									<label><?php __('lblReservationTax'); ?></label>

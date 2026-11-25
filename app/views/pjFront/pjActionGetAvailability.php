@@ -35,7 +35,7 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 				<?php
 				foreach ($tpl['arr'] as $k => $calendar)
 				{
-					?><div class="abCal-title"><a href="#" class="abCal-link" data-id="<?php echo $calendar['id']; ?>"><?php echo pjSanitize::html($calendar['title']); ?></a></div><?php
+					?><div class="abCal-title abCal-t-<?php echo $calendar['id']; ?>"><a href="#" class="abCal-link" data-id="<?php echo $calendar['id']; ?>"><?php echo pjSanitize::html($calendar['title']); ?></a></div><?php
 				}
 				?>
 			</div>

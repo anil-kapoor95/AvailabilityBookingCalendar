@@ -8,12 +8,15 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 	</div>
 	<?php
 } else {
+	$modern_step = 3;
+	include dirname(__FILE__) . '/elements/steps.php';
 	include dirname(__FILE__) . '/elements/menu.php';
 	$STORAGE = @$_SESSION[$controller->defaultCalendar];
 	?>
-	<form action="" method="post" class="abForm">
+	<form action="" method="post" class="abForm abSummaryForm">
 		<div class="abBox abWhite abHeading"><?php __('bf_booking_summary'); ?></div>
 		<div class="abBox abGray">
+			<?php include dirname(__FILE__) . '/elements/stay.php'; ?>
 			<div class="abParagraph">
 				<div class="abParagraphInner">
 					<label class="abTitle"><?php __('bf_start_date'); ?></label>
@@ -66,7 +69,7 @@ if (isset($tpl['status']) && $tpl['status'] == 'IP_BLOCKED') {
 				</div>
 				<?php
 			} ?>
-			<div class="abSelectorPrice"><?php include dirname(__FILE__) . '/pjActionGetPrice.php'; ?></div>
+			<div class="abSelectorPrice"><?php $abReadonlyPrice = true; include dirname(__FILE__) . '/pjActionGetPrice.php'; ?></div>
 		</div>
 		<div class="abBox abWhite">
 			<?php

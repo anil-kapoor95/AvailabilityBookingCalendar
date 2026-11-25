@@ -36,6 +36,8 @@ class pjReservationModel extends pjAppModel
         array('name' => 'deposit', 'type' => 'decimal', 'default' => ':NULL'),
         array('name' => 'tax', 'type' => 'decimal', 'default' => ':NULL'),
         array('name' => 'security', 'type' => 'decimal', 'default' => ':NULL'),
+        array('name' => 'voucher_code', 'type' => 'varchar', 'default' => ':NULL'),
+        array('name' => 'discount', 'type' => 'decimal', 'default' => ':NULL'),
         array('name' => 'cc_type', 'type' => 'varchar', 'default' => ':NULL'),
         array('name' => 'cc_num', 'type' => 'blob', 'default' => ':NULL', 'encrypt' => 'AES'),
         array('name' => 'cc_exp_month', 'type' => 'blob', 'default' => ':NULL', 'encrypt' => 'AES'),

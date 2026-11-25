@@ -51,7 +51,7 @@ if (!defined("PJ_FONT_PATH")) define("PJ_FONT_PATH", "app/web/fonts/");
 if (!defined("PJ_JS_PATH")) define("PJ_JS_PATH", "app/web/js/");
 if (!defined("PJ_UPLOAD_PATH")) define("PJ_UPLOAD_PATH", "app/web/upload/");
 
-if (!defined("PJ_SCRIPT_VERSION")) define("PJ_SCRIPT_VERSION", "6.1");
+if (!defined("PJ_SCRIPT_VERSION")) define("PJ_SCRIPT_VERSION", "7.0");
 if (!defined("PJ_SCRIPT_ID")) define("PJ_SCRIPT_ID", "24");
 if (!defined("PJ_SCRIPT_BUILD")) define("PJ_SCRIPT_BUILD", "6.0.0");
 if (!defined("PJ_SCRIPT_PREFIX")) define("PJ_SCRIPT_PREFIX", "abcalendar_");
@@ -65,7 +65,7 @@ if (!defined("PJ_RSA_MODULO")) define("PJ_RSA_MODULO", '148152031335408696919500
 if (!defined("PJ_RSA_PRIVATE")) define("PJ_RSA_PRIVATE", '7');
 
 $CONFIG = array();
-$CONFIG['plugins'] = array('pjBase', 'pjAuth', 'pjInstaller', 'pjPayments', 'pjPaypal', 'pjAuthorize', 'pj2checkout', 'pjBraintree', 'pjMollie', 'pjPaypalExpress', 'pjSkrill', 'pjStripe');
+$CONFIG['plugins'] = array('pjBase', 'pjAuth', 'pjInstaller', 'pjPayments', 'pjPaypal', 'pjAuthorize', 'pj2checkout', 'pjBraintree', 'pjMollie', 'pjPaypalExpress', 'pjSkrill', 'pjStripe', 'pjVouchers');
 $CONFIG['plugins_base_auth_updates'] = true; // Execute pjBase and pjAuth updates before script database.sql
 $CONFIG['role_permissions_admin'] = array('*'); // Full access
 $CONFIG['role_permissions_editor'] = array(
@@ -107,6 +107,7 @@ $CONFIG['permission_items_order'] = array(
     'pjAdmin_pjActionIndex',
     'pjAdminCalendars',
     'pjAdminReservations',
+    'pjVouchers',
 	'pjAdminOwners',
 	'pjAdminOptions_pjActionNotifications',
     'pjBaseOptions',

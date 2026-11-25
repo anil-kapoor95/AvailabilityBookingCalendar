@@ -13,6 +13,9 @@ $isScriptReservations = in_array($controller_name, array('pjAdminReservations'))
 $isScriptReservationsController = $isScriptReservations && in_array($action_name, array('pjActionIndex', 'pjActionCreate', 'pjActionUpdate'));
 $isScriptScheduleController = $isScriptReservations && in_array($action_name, array('pjActionSchedule'));
 
+// Vouchers
+$isScriptVouchersController = in_array($controller_name, array('pjVouchers'));
+
 // Owners
 $isScriptOwners = in_array($controller_name, array('pjAdminOwners'));
 
@@ -30,6 +33,9 @@ $hasAccessScriptCalendars          = pjAuth::factory('pjAdminCalendars')->hasAcc
 // Permissions - Reservations
 $hasAccessScriptReservations          = pjAuth::factory('pjAdminReservations', 'pjActionIndex')->hasAccess();
 $hasAccessScriptSchedule          = pjAuth::factory('pjAdminReservations', 'pjActionSchedule')->hasAccess();
+
+// Permissions - Vouchers
+$hasAccessScriptVouchers = pjAuth::factory('pjVouchers')->hasAccess();
 
 // Permissions - Owners
 $hasAccessScriptOwners          = pjAuth::factory('pjAdminOwners')->hasAccess();
@@ -64,6 +70,14 @@ $hasAccessScriptOptionsNotifications          = pjAuth::factory('pjAdminOptions'
             <?php endif; ?>
         </ul>
     </li>
+<?php endif; ?>
+
+<?php if (pjObject::getPlugin('pjVouchers') !== NULL): ?>
+    <?php if ($hasAccessScriptVouchers): ?>
+        <li<?php echo $isScriptVouchersController ? ' class="active"' : NULL; ?>>
+            <a href="<?php echo $_SERVER['PHP_SELF']; ?>?controller=pjVouchers&amp;action=pjActionIndex"><i class="fa fa-gift"></i> <span class="nav-label"><?php __('plugin_vouchers_menu_vouchers');?></span></a>
+        </li>
+    <?php endif; ?>
 <?php endif; ?>
 
 <?php if ($hasAccessScriptOptionsNotifications): ?>

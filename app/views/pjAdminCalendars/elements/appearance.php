@@ -12,7 +12,38 @@
 				$info = str_replace("[ETAG]", "</a>", $info); 
 				?>
 				<div class="alert alert-success"><?php echo $info;?></div>
-	
+				
+				<?php
+				# Modern design: "Design" setting (Classic / Modern) + the Customize design panel
+				$abThemeOpt = isset($tpl['calendar_option_arr']['o_theme']) ? $tpl['calendar_option_arr']['o_theme'] : array('value' => 'classic|modern::classic', 'label' => 'Classic|Modern');
+				$abThemeDef = explode("::", $abThemeOpt['value']);
+				$abThemeEnum = explode("|", $abThemeDef[0]);
+				$abThemeLabels = explode("|", $abThemeOpt['label']);
+				$abLblDesign = __('opt_o_theme', true);
+				$abLblDesign = (is_string($abLblDesign) && $abLblDesign !== '' && $abLblDesign !== 'opt_o_theme') ? $abLblDesign : 'Design';
+				$abLblClassic = __('modern_option_classic', true);
+				$abLblClassic = (is_string($abLblClassic) && $abLblClassic !== '' && $abLblClassic !== 'modern_option_classic') ? $abLblClassic : 'Classic';
+				?>
+				<div class="row">
+					<div class="col-sm-6 col-xs-12">
+						<div class="form-group">
+							<label><?php echo htmlspecialchars($abLblDesign); ?></label>
+							<select class="form-control" name="value-enum-o_theme">
+								<?php
+								foreach ($abThemeEnum as $k => $el)
+								{
+									$abLbl = $el == 'classic' ? $abLblClassic : (isset($abThemeLabels[$k]) ? $abThemeLabels[$k] : ucfirst($el));
+									?><option value="<?php echo $abThemeDef[0] . '::' . $el; ?>"<?php echo (isset($abThemeDef[1]) && $abThemeDef[1] == $el) ? ' selected="selected"' : NULL; ?>><?php echo htmlspecialchars($abLbl); ?></option><?php
+								}
+								?>
+							</select>
+						</div>
+					</div>
+				</div>
+				<?php include dirname(__FILE__) . '/modern_panel.php'; ?>
+				
+				<div id="abClassicAppearance">
+				<div class="hr-line-dashed"></div>
 				<div class="row">
 					<div class="col-sm-6 col-xs-12">
 						<div class="form-group">
@@ -650,6 +681,8 @@
 					</div>
 				</div>
 	
+				</div><!-- /#abClassicAppearance -->
+
 				<div class="hr-line-dashed"></div>
 	
 				<div class="clearfix">

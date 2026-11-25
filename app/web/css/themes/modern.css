@@ -1096,8 +1096,28 @@
 	height: auto !important; line-height: 1 !important; padding: 0; border-radius: var(--modern-cell);
 	font-size: calc(var(--modern-fs) * .96);
 }
-[calendarContainer]:has(.abModernCal) .abCalendarLinkDate{ padding: 0; width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+[calendarContainer]:has(.abModernCal) .abCalendarLinkDate{ padding: 0; width: 100%; aspect-ratio: 1 / 1; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex-direction: column; }
 [calendarContainer]:has(.abModernCal) td.abCalendarEmpty{ aspect-ratio: 1 / 1; }
+/* fit in a glance: the cell height is capped so toolbar + 6 week rows + legend + bottom bar fit the viewport (squares when there is room) */
+[calendarContainer]:has(.abModernCal){ --abCellH: clamp(32px, calc((100vh - 295px) / 6 - 4px), 84px); }
+@supports (height: 100dvh){ [calendarContainer]:has(.abModernCal){ --abCellH: clamp(32px, calc((100dvh - 295px) / 6 - 4px), 84px); } }
+/* every day cell is a true square (a circle in the round design): width = height, centred in its column */
+[calendarContainer]:has(.abModernCal) td.abCalendarDate,
+[calendarContainer]:has(.abModernCal) td.abCalendarToday,
+[calendarContainer]:has(.abModernCal) td.abCalendarReserved,
+[calendarContainer]:has(.abModernCal) td.abCalendarPending,
+[calendarContainer]:has(.abModernCal) td.abCalendarPast,
+[calendarContainer]:has(.abModernCal) td.abCalendarEmpty,
+[calendarContainer]:has(.abModernCal) td.abCalendarPendingNightsStart,
+[calendarContainer]:has(.abModernCal) td.abCalendarPendingNightsEnd,
+[calendarContainer]:has(.abModernCal) td.abCalendarReservedNightsStart,
+[calendarContainer]:has(.abModernCal) td.abCalendarReservedNightsEnd,
+[calendarContainer]:has(.abModernCal) td.abCalendarNightsReservedReserved,
+[calendarContainer]:has(.abModernCal) td.abCalendarNightsReservedPending,
+[calendarContainer]:has(.abModernCal) td.abCalendarNightsPendingReserved,
+[calendarContainer]:has(.abModernCal) td.abCalendarNightsPendingPending{ width: min(100%, var(--abCellH)); aspect-ratio: 1 / 1; justify-self: center; }
+[calendarContainer]:has(.abModernCal) .abCalendarNote{ margin-bottom: 8px; }
+[calendarContainer]:has(.abModernCal) table.abCalendarLegend{ margin-top: 6px; padding: 4px 12px; }
 [calendarContainer]:has(.abModernCal) td.abCalendarDate:hover,
 [calendarContainer]:has(.abModernCal) td.abCalendarPending:hover{ filter: none; box-shadow: 0 6px 12px -6px color-mix(in srgb, var(--modern-heading) 40%, transparent); }
 [calendarContainer]:has(.abModernCal) td.abCalendarReserved{ text-decoration: line-through; text-decoration-thickness: 1px; font-weight: 500; }
@@ -1211,3 +1231,13 @@
 [calendarContainer] .abVoucherBox .abVoucherApplied{ color:var(--modern-ok); }
 [calendarContainer] .abVoucherBox .abVoucherRemove{ margin-left:4px; }
 [calendarContainer] .abVoucherRow .abVoucherDiscount{ color:var(--modern-ok); }
+
+/* ---- several months at once (3 / 6 / 12): every day is a true square (a circle in the round design), same width and height ---- */
+[calendarContainer].abWrapper13 table.abCalendarTable{ border-spacing: 3px; padding: 8px 6px 10px; }
+[calendarContainer].abWrapper13 td.abCalendarWeekDay:first-child,
+[calendarContainer].abWrapper13 td.abCalendarWeekNum{ width: 20px; padding-left: 0; padding-right: 0; }
+[calendarContainer].abWrapper13 .abCalendarLinkDate{
+	padding: 0; margin: 0; width: 100%; aspect-ratio: 1 / 1; box-sizing: border-box;
+	display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+}
+[calendarContainer].abWrapper13 td.abCalendarEmpty{ aspect-ratio: auto; }

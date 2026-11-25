@@ -296,6 +296,16 @@ class pjFront extends pjAppController
 				}
 			}
 		}
+		# No rate set for the chosen stay: it can not be booked
+		try {
+			$price = pjPriceModel::factory()->getPrice($calendar_id, date("Y-m-d", $s), date("Y-m-d", $e), $opt);
+		} catch (Exception $ex) {
+			$price = NULL;
+		}
+		if (is_array($price) && (float) @$price["amount"] <= 0)
+		{
+			return array("status" => "ERR", "code" => 106, "text" => __("front_no_rate", true));
+		}
 		return NULL;
 	}
 	

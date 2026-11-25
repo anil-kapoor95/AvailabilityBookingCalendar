@@ -798,7 +798,7 @@
 					pjQ.$('.abCalendarCancel').hide();
 					self.getBookingForm.call(self);
 				} else {
-					self.errorHandler.call(self, 'show', self.opts.error_msg.range_na, el);
+					self.errorHandler.call(self, 'show', (data && (data.code === 104 || data.code === 105 || data.code === 106) && data.text) ? data.text : self.opts.error_msg.range_na, el);
 					// the range is not bookable: forget it, so the calendar shows the real availability again
 					self.modernCalReset.call(self, true);
 					return;

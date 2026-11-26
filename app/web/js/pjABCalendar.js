@@ -445,11 +445,17 @@
 					if (self.start_dt !== null) {
 						// Check-out day: only an available day can be chosen. A pending, booked or partly
 						// booked day is ignored (an already chosen day can still be clicked to undo it).
+						// Exception (nights-based calendars): a day on which the NEXT booking starts is a valid
+						// check-out day, because the night before it is free (same-day check-out / check-in).
+						// This is what makes a single free night between two bookings bookable.
 						var $day = pjQ.$(this),
 							dayTime = parseInt($day.data("time"), 10),
 							available = $day.hasClass("abCalendarDate") &&
-								!$day.is(".abCalendarPending, .abCalendarReserved, .abCalendarPartial, .abCalendarPast, [class*='abCalendarNights'], [class*='abCalendarPendingNights'], [class*='abCalendarReservedNights']");
-						if (dayTime !== self.start_dt && dayTime !== self.end_dt && !available) {
+								!$day.is(".abCalendarPending, .abCalendarReserved, .abCalendarPartial, .abCalendarPast, [class*='abCalendarNights'], [class*='abCalendarPendingNights'], [class*='abCalendarReservedNights']"),
+							startsNextBooking = self.opts.price_based_on === "nights" && dayTime > self.start_dt &&
+								$day.is(".abCalendarPendingNightsStart, .abCalendarReservedNightsStart") &&
+								!$day.is(".abCalendarPast, .abCalendarPendingNightsEnd, .abCalendarReservedNightsEnd, [class*='abCalendarNightsP'], [class*='abCalendarNightsR']");
+						if (dayTime !== self.start_dt && dayTime !== self.end_dt && !available && !startsNextBooking) {
 							self.errorHandler.call(self, 'show', self.opts.error_msg.fully_booked, this);
 							return;
 						}

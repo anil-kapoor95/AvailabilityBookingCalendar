@@ -33,7 +33,7 @@ class pjVoucherModel extends pjVouchersAppModel
      * Availability Booking Calendar: vouchers are validated by DATE only (check-in date),
      * the time columns are stored but ignored.
      */
-    public function getVoucher($code, $date, $time = '00:00:00')
+    public function getVoucher($code, $date, $time = '00:00:00', $bookingDate = NULL)
 	{
 		$result = array('status' => 'ERR', 'code' => '100');
 
@@ -57,7 +57,7 @@ class pjVoucherModel extends pjVouchersAppModel
 			// valid_for: stay = check-in date, booking = date the reservation is made (today),
 			// both = the voucher works when EITHER of them falls inside the voucher's dates
 			$valid_for = isset($arr['valid_for']) ? $arr['valid_for'] : 'stay';
-			$today = date('Y-m-d');
+			$today = !empty($bookingDate) ? $bookingDate : date('Y-m-d'); # date the reservation was made (default: today)
 			switch ($valid_for)
 			{
 				case 'booking':

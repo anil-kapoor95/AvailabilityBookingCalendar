@@ -515,6 +515,12 @@ class pjFront extends pjAppController
 						$end_dt = strtotime('+1 day', $end_dt); 
 					}
 					
+					$prev = $_SESSION[$this->defaultCalendar];
+					if (!isset($prev['start_dt']) || !isset($prev['end_dt']) || (string) $prev['start_dt'] !== (string) $start_dt || (string) $prev['end_dt'] !== (string) $end_dt)
+					{
+						# a different date range = a new booking: nothing (guest details, voucher, extras...) may carry over from the previous attempt
+						$_SESSION[$this->defaultCalendar] = array();
+					}
 					$_SESSION[$this->defaultCalendar] = array_merge($_SESSION[$this->defaultCalendar], compact('start_dt', 'end_dt'));
 				}
 								
@@ -713,6 +719,21 @@ class pjFront extends pjAppController
 				}
 			}
 			pjAppController::jsonResponse($resp);
+		}
+		exit;
+	}
+	
+	/**
+	 * Starts a clean booking: forgets the dates, guest details and voucher of the previous attempt.
+	 */
+	public function pjActionResetBooking()
+	{
+		$this->setAjax(true);
+		if ($this->isXHR())
+		{
+			$_SESSION[$this->defaultCalendar] = NULL;
+			unset($_SESSION[$this->defaultCalendar]);
+			pjAppController::jsonResponse(array('status' => 'OK'));
 		}
 		exit;
 	}

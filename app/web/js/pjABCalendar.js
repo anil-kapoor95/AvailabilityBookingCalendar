@@ -188,7 +188,9 @@
 				pjQ.$(this).prepend('<i class="fa fa-repeat fa-spin"></i>&nbsp;');
 				pjQ.$(this).attr("disabled", "disabled");
 				pjQ.$(this).siblings().attr("disabled", "disabled");
-				self.getCalendar.call(self, self.year, self.month);
+				self.resetBooking.call(self).always(function () {
+					self.getCalendar.call(self, self.year, self.month);
+				});
 			}).on("click.ab", ".abSelectorConfirm", function () {
 				var $this = pjQ.$(this),
 					$back = $this.siblings(".abSelectorReturn");
@@ -323,7 +325,9 @@
 				self.end_dt = null;
 				self.message_type = 'calendar';
 				self.loadHandler.call(self);
-				self.getCalendar.call(self, self.year, self.month);
+				self.resetBooking.call(self).always(function () {
+					self.getCalendar.call(self, self.year, self.month);
+				});
 				return false;
 			}).on("click.ab", ".abCalDockGo", function (e) {
 				if (e && e.preventDefault) {
@@ -348,7 +352,9 @@
 				self.end_dt = null;
 				self.message_type = 'calendar';
 				self.loadHandler.call(self);
-				self.getCalendar.call(self, self.year, self.month);
+				self.resetBooking.call(self).always(function () {
+					self.getCalendar.call(self, self.year, self.month);
+				});
 				return false;
 			}).on("click.ab", ".abExtraCheckbox", function (e) {
 				var extra_id = pjQ.$(this).attr('data-id');
@@ -564,6 +570,10 @@
 					self.calcPrice();
 				});
 			});
+		},
+		resetBooking: function () {
+			var self = this;
+			return pjQ.$.post([self.opts.folder, "index.php?controller=pjFront&action=pjActionResetBooking&cid=", self.opts.cid, "&session_id=", self.opts.session_id].join(""));
 		},
 		calcPrice: function()
 		{

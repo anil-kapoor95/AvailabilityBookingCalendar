@@ -509,10 +509,25 @@ class pjAdminReservations extends pjAdmin
 			if (!empty($reservation['voucher_code']))
 			{
 				# the Amount field shows the price BEFORE the voucher discount; the amount is stored AFTER the discount
-				$disc = isset($post['discount']) ? max(0, (float) $post['discount']) : (float) $reservation['discount'];
-				$post['amount'] = max(0, round((float) $post['amount'] - $disc, 2));
+				# never trust the posted discount: keep the stored one, or recompute it when the dates / calendar changed
+				$price = max(0, round((float) $post['amount'], 2));
+				$disc = min((float) $reservation['discount'], $price);
+				if ($data['date_from'] != $reservation['date_from'] || $data['date_to'] != $reservation['date_to'] || $this->_post->toInt('calendar_id') != (int) $reservation['calendar_id'])
+				{
+					$disc = 0;
+					$v = (pjObject::getPlugin('pjVouchers') !== NULL) ? pjVoucherModel::factory()->getVoucher($reservation['voucher_code'], date('Y-m-d', strtotime($data['date_from'])), '00:00:00', substr((string) $reservation['created'], 0, 10)) : array('status' => 'ERR');
+					if ($v['status'] == 'OK')
+					{
+						$disc = $v['arr']['type'] == 'percent' ? round($price * (float) $v['arr']['discount'] / 100, 2) : (float) $v['arr']['discount'];
+						$disc = min($disc, $price);
+					}
+				}
+				$post['amount'] = max(0, round($price - $disc, 2));
 				$post['discount'] = $disc;
-				$post['voucher_code'] = $disc > 0 ? $reservation['voucher_code'] : NULL;
+				$post['voucher_code'] = $disc > 0 ? $reservation['voucher_code'] : ':NULL';
+			} else {
+				# a voucher can not be added to an existing reservation through a crafted request
+				unset($post['voucher_code'], $post['discount']);
 			}
 			$pjReservationModel->reset()->where('id', $this->_post->toInt('id'))->limit(1)->modifyAll(array_merge($post, $data));
 			pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionIndex&err=AR01");

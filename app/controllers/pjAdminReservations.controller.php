@@ -59,6 +59,11 @@ class pjAdminReservations extends pjAdmin
 			$data['price_based_on'] = $option_arr['o_price_based_on'];
 			$data['ip'] = $_SERVER['REMOTE_ADDR'];
 			$data['locale_id'] = $this->getLocaleId();			
+			# no rate for the chosen dates: the reservation can not be created
+			if ($data['date_from'] === FALSE || $data['date_to'] === FALSE || !$this->pjActionHasRate($this->_post->toInt('calendar_id'), strtotime($data['date_from']), strtotime($data['date_to']), $this->_post->check('c_adults') ? $this->_post->toInt('c_adults') : 0, $this->_post->check('c_children') ? $this->_post->toInt('c_children') : 0, $option_arr))
+			{
+				pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionIndex&err=AR20");
+			}
 			$post = $this->_post->raw();
 			$post['voucher_code'] = NULL;
 			$post['discount'] = 0;
@@ -208,6 +213,11 @@ class pjAdminReservations extends pjAdmin
 				}
 			}
 			$response['status'] = 'OK';
+			$response['no_rate'] = ((float) $response['price_before_discount'] > 0) ? 0 : 1;
+			if ($response['no_rate'])
+			{
+				$response['no_rate_text'] = __('front_no_rate', true);
+			}
 			pjAppController::jsonResponse($response);
 		}
 		exit;
@@ -478,6 +488,15 @@ class pjAdminReservations extends pjAdmin
 			{
 				$option_arr = pjOptionModel::factory()->getPairs($this->_post->toInt('calendar_id'));
 			}
+			if ($this->_post->toString('status') != 'Cancelled' && ($data['date_from'] != $reservation['date_from'] || $data['date_to'] != $reservation['date_to'] || $this->_post->toInt('calendar_id') != (int) $reservation['calendar_id']))
+			{
+				# changed dates / calendar must have a rate
+				$rate_opt = pjOptionModel::factory()->getPairs($this->_post->toInt('calendar_id'));
+				if (!$this->pjActionHasRate($this->_post->toInt('calendar_id'), strtotime($data['date_from']), strtotime($data['date_to']), $this->_post->check('c_adults') ? $this->_post->toInt('c_adults') : 0, $this->_post->check('c_children') ? $this->_post->toInt('c_children') : 0, $rate_opt))
+				{
+					pjUtil::redirect($_SERVER['PHP_SELF'] . "?controller=pjAdminReservations&action=pjActionIndex&err=AR20");
+				}
+			}
 			if ($this->_post->toString('status') != 'Cancelled') {
 				$check = $this->pjActionCheckDt($data['date_from'], $data['date_to'], $this->_post->toInt('calendar_id'), $this->_post->toInt('id'), true);
 				if ($check['status'] == 'ERR')
@@ -486,6 +505,7 @@ class pjAdminReservations extends pjAdmin
 				}
 			}
 			$post = $this->_post->raw();
+			$post['uuid'] = $reservation['uuid'];
 			if (!empty($reservation['voucher_code']))
 			{
 				# the Amount field shows the price BEFORE the voucher discount; the amount is stored AFTER the discount

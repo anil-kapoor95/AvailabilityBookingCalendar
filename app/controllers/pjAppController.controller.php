@@ -834,6 +834,19 @@ class pjAppController extends pjBaseAppController
 		return $result;
 	}
 	
+	/**
+	 * True when a rate (price > 0) exists for the given stay. Used by the admin and front-end to refuse reservations without a rate.
+	 */
+	protected function pjActionHasRate($calendar_id, $start_dt, $end_dt, $adults, $children, $option_arr)
+	{
+		try {
+			$p = $this->pjActionCalcPrices($calendar_id, $start_dt, $end_dt, $adults, $children, $option_arr, $this->getLocaleId());
+		} catch (Exception $ex) {
+			return false;
+		}
+		return (float) $p['price_before_discount'] > 0;
+	}
+
 	protected function pjActionCalcPrices($calendar_id, $start_dt, $end_dt, $adults, $children, $option_arr, $locale_id, $voucher_code = NULL)
 	{
 		$discount = 0;
@@ -903,9 +916,9 @@ class pjAppController extends pjBaseAppController
 		}
 		if ($amount > 0 && isset($option_arr['o_tax']) && (float) $option_arr['o_tax'] > 0)
 		{
-			$tax = ($amount * (float) $option_arr['o_tax']) / 100;
+			$tax = round(($amount * (float) $option_arr['o_tax']) / 100, 2);
 		}
-		$total = $amount + $tax;		
+		$total = round($amount + $tax, 2);
 		if (isset($option_arr['o_require_all_within']) && (int) $option_arr['o_require_all_within'] > 0 &&
 				strtotime(date("Y-m-d")) + (int) $option_arr['o_require_all_within'] * 86400 >= $start_dt)
 		{			
@@ -914,7 +927,7 @@ class pjAppController extends pjBaseAppController
 			switch ($option_arr['o_deposit_type'])
 			{
 				case 'percent':
-					$deposit = ($total * (float) $option_arr['o_deposit']) / 100;
+					$deposit = round(($total * (float) $option_arr['o_deposit']) / 100, 2);
 					break;
 				case 'amount':
 					$deposit = (float) $option_arr['o_deposit'];

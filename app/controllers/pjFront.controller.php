@@ -298,7 +298,8 @@ class pjFront extends pjAppController
 		}
 		# No rate set for the chosen stay: it can not be booked
 		try {
-			$price = pjPriceModel::factory()->getPrice($calendar_id, date("Y-m-d", $s), date("Y-m-d", $e), $opt);
+			$price_model = (@$opt['o_price_plugin'] == 'period') ? pjPeriodModel::factory() : pjPriceModel::factory();
+			$price = $price_model->getPrice($calendar_id, date("Y-m-d", $s), date("Y-m-d", $e), $opt);
 		} catch (Exception $ex) {
 			$price = NULL;
 		}

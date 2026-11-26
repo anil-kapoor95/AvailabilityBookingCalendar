@@ -74,7 +74,8 @@ var jQuery = jQuery || $.noConflict();
     					{
         					$fromElement.find('input').val($input.val());
     					}
-        				$fromElement.datepicker('setEndDate', $maxDate);
+        				// No end-date limit on the "From" picker: it hid the forward (next month) arrow. The order of the dates is kept by moving "From" back to "To" above.
+        				$fromElement.datepicker('setEndDate', null);
         			}
 	        	}
 	        	if($frmCreateReservation.length > 0 || $frmUpdateReservation.length > 0)
@@ -172,9 +173,58 @@ var jQuery = jQuery || $.noConflict();
 			}
 		}
 
+		function showNoRate(text) {
+			var $m = $("#no_rate_msg");
+			if ($m.length === 0) {
+				$m = $('<div id="no_rate_msg" class="alert alert-danger" style="display:none;margin-top:10px"><i class="fa fa-exclamation-triangle m-r-xs"></i><span></span></div>');
+				var $anchor = $(".btnCalculate").first().closest("form").find(".alert").first();
+				if ($anchor.length > 0) {
+					$m.insertBefore($anchor);
+				} else {
+					$m.insertAfter($(".btnCalculate").first().closest("div"));
+				}
+			}
+			if (text) {
+				$m.find("span").text(text).end().show();
+			} else {
+				$m.hide().find("span").text("");
+			}
+		}
+
+		// A reservation can only be saved when the chosen dates have a rate (the server enforces the same rule)
+		var rateOrig = null;
+		function rateKey(form) {
+			var $f = $(form);
+			return [$f.find("[name='calendar_id']").val(), $f.find("[name='date_from']").val(), $f.find("[name='date_to']").val()].join("|");
+		}
+		function checkRate(form, onOk) {
+			if ($(form).find("[name='reservation_update']").length > 0 && rateOrig !== null && rateKey(form) === rateOrig) {
+				onOk();
+				return;
+			}
+			$.post("index.php?controller=pjAdminReservations&action=pjActionCalcPrice", $(form).serialize()).done(function (data) {
+				if (data.status === "OK" && parseInt(data.no_rate, 10) === 1) {
+					showNoRate(data.no_rate_text || "");
+					$("html, body").animate({scrollTop: $("#no_rate_msg").offset().top - 120}, 200);
+					return;
+				}
+				showNoRate("");
+				onOk();
+			}).fail(function () {
+				onOk();
+			});
+		}
+		$(function () {
+			var $u = $("form [name='reservation_update']").closest("form");
+			if ($u.length > 0) {
+				rateOrig = rateKey($u[0]);
+			}
+		});
+
 		function calcPrices(callback) {
 			$.post("index.php?controller=pjAdminReservations&action=pjActionCalcPrice", $(this).closest("form").serialize()).done(function (data) {
 				if (data.status === "OK") {
+					showNoRate(parseInt(data.no_rate, 10) === 1 ? (data.no_rate_text || "") : "");
 					if ($("#voucher_discount").length > 0) {
 						// voucher reservation: Amount is shown BEFORE the discount, like the front-end breakdown
 						var vd = data.voucher_code ? parseFloat(data.discount) || 0 : 0;
@@ -337,7 +387,7 @@ var jQuery = jQuery || $.noConflict();
 				{
 					if(validateMaxPeople.call(null) == true && validateMinPeople.call(null) == true)
 					{
-						form.submit()
+						checkRate(form, function () { form.submit(); });
 					}
 					return false;
 				}
@@ -373,7 +423,7 @@ var jQuery = jQuery || $.noConflict();
 				{
 					if(validateMaxPeople.call(null) == true && validateMinPeople.call(null) == true)
 					{
-						form.submit()
+						checkRate(form, function () { form.submit(); });
 					}
 					return false;
 				}

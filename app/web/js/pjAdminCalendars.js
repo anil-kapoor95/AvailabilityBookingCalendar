@@ -146,7 +146,7 @@ var jQuery = jQuery || $.noConflict();
 	    					{
 	        					$fromElement.val($toElement.val());
 	    					}
-	        				$fromElement.datepicker('setEndDate', $maxDate);
+	        				$fromElement.datepicker('setEndDate', null); // no end limit: it hid the forward (next month) arrow
 	        			}
 	        		}
 	            });
@@ -1077,7 +1077,7 @@ var jQuery = jQuery || $.noConflict();
         					{
             					$from.val($('input[name="date_to"]').val());
         					}
-            				$from.datepicker('setEndDate', $maxDate);
+            				$from.datepicker('setEndDate', null); // no end limit: it hid the forward (next month) arrow
             			}
             		}
                 });

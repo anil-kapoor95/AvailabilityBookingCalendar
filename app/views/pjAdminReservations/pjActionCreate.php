@@ -58,7 +58,7 @@ if ($controller->_get->check('time')) {
 								<div class="form-group">
 									<label><?php __('lblReservationUuid'); ?></label>
 									<div>
-										<input class="form-control required" name="uuid" id="uuid" value="<?php echo pjUtil::uuid(); ?>" maxlength="255" data-msg-required="<?php __('pj_field_required', false, true);?>" type="text" aria-required="true">
+										<input class="form-control required" name="uuid" id="uuid" value="<?php echo pjUtil::uuid(); ?>" maxlength="255" readonly="readonly" data-msg-required="<?php __('pj_field_required', false, true);?>" type="text" aria-required="true">
 									</div>
 								</div>
 							</div>

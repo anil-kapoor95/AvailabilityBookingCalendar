@@ -54,7 +54,8 @@ class pjVoucherModel extends pjVouchersAppModel
 				}
 				return false;
 			};
-			// valid_for: stay = check-in date, booking = date the reservation is made (today), both = both
+			// valid_for: stay = check-in date, booking = date the reservation is made (today),
+			// both = the voucher works when EITHER of them falls inside the voucher's dates
 			$valid_for = isset($arr['valid_for']) ? $arr['valid_for'] : 'stay';
 			$today = date('Y-m-d');
 			switch ($valid_for)
@@ -63,7 +64,8 @@ class pjVoucherModel extends pjVouchersAppModel
 					$ok = $check($today);
 					break;
 				case 'both':
-					$ok = $check($date) && $check($today);
+					# one set of dates is stored for the voucher, so requiring BOTH checks to pass at once made it unusable
+					$ok = $check($date) || $check($today);
 					break;
 				default:
 					$ok = $check($date);

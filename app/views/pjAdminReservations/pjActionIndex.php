@@ -34,6 +34,15 @@ $rs = __('reservation_statuses', true);
 					</div>
 					<?php 
 					break;
+				case $error_code == 'AR20':
+					?>
+					<div class="alert alert-danger">
+						<i class="fa fa-exclamation-triangle m-r-xs"></i>
+						<strong><?php echo @$titles['AR04']; ?></strong>
+						<?php __('front_no_rate'); ?>
+					</div>
+					<?php
+					break;
 				case in_array($error_code, array('AR02', 'AR04', 'AR08', 'AR09', 'AR10')):	
 					?>
 					<div class="alert alert-danger">

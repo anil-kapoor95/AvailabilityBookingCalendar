@@ -68,7 +68,7 @@ $reservation_statuses = __('reservation_statuses', true);
 										<div class="form-group">
 											<label><?php __('lblReservationUuid'); ?></label>
 											<div>
-												<input class="form-control required" name="uuid" id="uuid" maxlength="255" value="<?php echo pjSanitize::html($tpl['arr']['uuid']); ?>" data-msg-required="<?php __('pj_field_required', false, true);?>" type="text" aria-required="true">
+												<input class="form-control required" name="uuid" id="uuid" maxlength="255" readonly="readonly" value="<?php echo pjSanitize::html($tpl['arr']['uuid']); ?>" data-msg-required="<?php __('pj_field_required', false, true);?>" type="text" aria-required="true">
 											</div>
 										</div>
 									</div>

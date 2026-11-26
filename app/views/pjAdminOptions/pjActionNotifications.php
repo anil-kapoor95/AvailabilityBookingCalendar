@@ -87,6 +87,9 @@ $bodies = __('error_bodies', true);
 						<div><small><strong>{ReservationUUID}</strong> - reservation's UUID</small></div>
 						<div><small><strong>{CancelURL}</strong> - cancel URL</small></div>
 						<div><small><strong>{CalendarName}</strong> - property name</small></div>
+						<?php foreach (array('{Voucher}' => array('notifications_token_voucher', 'voucher code applied to the reservation'), '{Discount}' => array('notifications_token_discount', 'discount given by the voucher')) as $__tk => $__tl) { $__tv = __($__tl[0], true); ?>
+						<div><small><strong><?php echo $__tk; ?></strong> - <?php echo htmlspecialchars((is_string($__tv) && $__tv !== '' && $__tv !== $__tl[0]) ? $__tv : $__tl[1]); ?></small></div>
+						<?php } ?>
 					</div>
 				</div>
 			</div>

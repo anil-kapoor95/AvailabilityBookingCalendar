@@ -224,6 +224,26 @@ if ($acModernActive)
 				st.textContent = cssBlock();
 			} catch (e) {}
 		}
+		/* The preview is for styling only: no date can be chosen and no booking step can be started inside it.
+		   Month navigation stays available so the calendar can be checked in other months. This lock lives only in this
+		   admin panel (it is injected into the preview frame), so the real front-end calendar is not affected. */
+		var LOCK = '[data-time], .abCalendarDate, .abCalendarPartial, .abCalendarPending, .abCalendarReserved, [class*="abCalendarNights"], .abCalDockGo, .abCalDockClear, .abCalendarCancel, .abSelectorContinue, .abSelectorCancel';
+		function lockPreview() {
+			try {
+				var d = frame.contentDocument, st = d.getElementById('modern-lock');
+				if (!d.head) { return; }
+				if (!st) { st = d.createElement('style'); st.id = 'modern-lock'; d.head.appendChild(st); }
+				st.textContent = LOCK + '{pointer-events:none !important;cursor:default !important;}';
+				if (!d.__acLocked) {
+					d.__acLocked = true;
+					var stop = function (e) {
+						var t = e.target && e.target.closest ? e.target.closest(LOCK) : null;
+						if (t) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); }
+					};
+					['click', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'dblclick', 'keydown', 'keyup', 'keypress'].forEach(function (n) { d.addEventListener(n, stop, true); });
+				}
+			} catch (e) {}
+		}
 		function currentPalette() {
 			var keys = ['page', 'card', 'soft', 'line', 'accent', 'heading', 'body', 'muted', 'link', 'btn', 'btn_text', 'btn_hover', 'btn2', 'btn2_text'];
 			for (var pk in C.palettes) {
@@ -319,8 +339,8 @@ if ($acModernActive)
 		});
 		function initStateDefaults() { S = clone(C.defaults); }
 		document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { open(false); } });
-		frame.addEventListener('load', applyLive);
-		initState(); build(); applyLive();
+		frame.addEventListener('load', function () { applyLive(); lockPreview(); });
+		initState(); build(); applyLive(); lockPreview();
 	})();
 	</script>
 	<?php
